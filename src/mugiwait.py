@@ -1,15 +1,15 @@
 """Mugiwait"""
 
-from dataclasses import dataclass
 import argparse
 import logging
 import os
+from dataclasses import dataclass
 from logging.handlers import TimedRotatingFileHandler
 
 import discord
 from dotenv import load_dotenv
 
-import commentfaces
+from resources.commentfaces import COMMENTFACES_URL
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ async def on_ready() -> None:
     )
     logger.info("Activity changed to %s", client.activity)
     logger.info("Logged in as %s", client.user)
-    print("Logged in as %s", client.user)
+    print(f"Logged in as {client.user}")
 
 
 @client.event
@@ -58,7 +58,7 @@ async def on_message(message: discord.Message) -> None:
         logger.debug("Ignoring message without the right prefix")
         return
     logger.info("Processing message: %s", message.content)
-    url = commentfaces.get_url(message.content[len(PREFIX) :])
+    url = get_url(message.content[len(PREFIX) :])
     if not url:
         logger.info("Invalid message, could not retrieve URL")
         return
@@ -69,6 +69,11 @@ async def on_message(message: discord.Message) -> None:
     await message.channel.send(url)
     logger.debug("Message sent")
     return
+
+
+def get_url(commentface: str) -> str:
+    """Return the URL matching the commentface code."""
+    return COMMENTFACES_URL.get(commentface, "")
 
 
 def main() -> None:
@@ -101,5 +106,6 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.DEBUG if args.debug else logging.INFO,
     )
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
     main()
