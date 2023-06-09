@@ -1,6 +1,9 @@
+import logging
 import functools
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 QUERY_URL = "https://api.github.com/search/code?q=repo:r-anime/comment-face-assets+path:/source+filename:"
 QUERY_URL_SEASONAL = "https://api.github.com/search/code?q=repo:r-anime/comment-face-assets+path:/source_seasonal_faces+sort:updated-desc+filename:"
