@@ -5,11 +5,12 @@ import logging
 import os
 from dataclasses import dataclass
 from logging.handlers import TimedRotatingFileHandler
+from typing import Type
 
 import discord
 from dotenv import load_dotenv
 
-from resources.commentfaces import COMMENTFACES_URL
+from client import MESSAGE_FUNCTION, AssetType, Mugiwait
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ PREFIX = "#"
 load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
-client = discord.Client(intents=intents)
+client = Mugiwait(intents=intents)
 
 
 @dataclass
@@ -29,6 +30,7 @@ class ParserArguments:
 
     log_dir: str
     debug: bool
+    imgur: bool
 
 
 @client.event
@@ -56,7 +58,7 @@ async def on_message(message: discord.Message) -> None:
         logger.debug("Ignoring message without the right prefix")
         return
     logger.info("Processing message: %s", message.content)
-    url = get_url(message.content[len(PREFIX) :])
+    url = MESSAGE_FUNCTION[client.asset_type](message.content[len(PREFIX) :])
     if not url:
         logger.info("Invalid message, could not retrieve URL")
         return
@@ -69,17 +71,14 @@ async def on_message(message: discord.Message) -> None:
     return
 
 
-def get_url(commentface: str) -> str:
-    """Return the URL matching the commentface code."""
-    return COMMENTFACES_URL.get(commentface, "")
-
-
-def main() -> None:
+def main(args: Type[ParserArguments]) -> None:
     """The main loop."""
     token = os.getenv("TOKEN")
     if not token:
         logger.error("Discord token not found. Cannot login.")
         return
+    if args.imgur:
+        client.asset_type = AssetType.IMGUR
     client.run(token)
 
 
@@ -90,6 +89,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-l", "--log-dir", dest="log_dir", default=LOG_DIR, help="set the log directory"
+    )
+    parser.add_argument(
+        "-i",
+        "--imgur",
+        action="store_true",
+        default=False,
+        help="use Imgur assets (default: Github)",
     )
     args = parser.parse_args(namespace=ParserArguments)
     os.makedirs(args.log_dir, exist_ok=True)
@@ -106,4 +112,4 @@ if __name__ == "__main__":
     )
     logging.getLogger("requests").setLevel(logging.WARNING)
 
-    main()
+    main(args=args)

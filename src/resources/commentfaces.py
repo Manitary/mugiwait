@@ -1,7 +1,5 @@
 """Store the map code -> URL for commentfaces"""
 
-# Imgur png embeds seem wonky, consider using Github links instead
-
 COMMENTFACES_URL = {
     "abandonthread": "https://i.imgur.com/W5oDveC.gif",
     "absolutely": "https://i.imgur.com/0zN14Rd.png",
