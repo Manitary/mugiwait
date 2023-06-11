@@ -14,6 +14,13 @@ from resources.commentfaces import COMMENTFACES_URL
 logger = logging.getLogger(__name__)
 
 LOG_DIR = "logs"
+PREFIX = "#"
+
+
+load_dotenv()
+intents = discord.Intents.default()
+intents.message_content = True
+client = discord.Client(intents=intents)
 
 
 @dataclass
@@ -22,15 +29,6 @@ class ParserArguments:
 
     log_dir: str
     debug: bool
-
-
-PREFIX = "#"
-
-load_dotenv()
-intents = discord.Intents.default()
-intents.message_content = True
-
-client = discord.Client(intents=intents)
 
 
 @client.event
@@ -49,7 +47,7 @@ async def on_ready() -> None:
 
 @client.event
 async def on_message(message: discord.Message) -> None:
-    """React on messages."""
+    """React to new messages."""
     logger.debug("Message detected")
     if message.author == client.user:
         logger.debug("Ignoring message from self")
