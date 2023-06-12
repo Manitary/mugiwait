@@ -10,18 +10,17 @@ from typing import Type
 import discord
 from dotenv import load_dotenv
 
-from client import MESSAGE_FUNCTION, AssetType, Mugiwait
+import mugiclient
 
 logger = logging.getLogger(__name__)
 
 LOG_DIR = "logs"
-PREFIX = "#"
 
 
 load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
-client = Mugiwait(intents=intents)
+client = mugiclient.Mugiwait(intents=intents)
 
 
 @dataclass
@@ -52,22 +51,29 @@ async def on_ready() -> None:
 async def on_message(message: discord.Message) -> None:
     """React to new messages."""
     logger.debug("Message detected")
-    if message.author == client.user:
-        logger.debug("Ignoring message from self")
-        return
-    if not message.content.startswith(PREFIX):
-        logger.debug("Ignoring message without the right prefix")
+    if not mugiclient.is_valid_message(message=message, client=client):
         return
     logger.info("Processing message: %s", message.content)
-    url = MESSAGE_FUNCTION[client.asset_type](message.content[len(PREFIX) :])
+    url = mugiclient.MESSAGE_FUNCTION[client.asset_type](
+        mugiclient.parse_message_text(message.content)
+    )
     if not url:
         logger.info("Invalid message, could not retrieve URL")
         return
     logger.info("URL found: %s", url)
+    hook = await mugiclient.get_webhook(
+        channel=message.channel, hook_name=str(client.user)
+    )
     logger.debug("Deleting message...")
     await message.delete()
     logger.debug("Message deleted. Sending message...")
-    await message.channel.send(url)
+    guild = await client.fetch_guild(message.guild.id)
+    author = await guild.fetch_member(message.author.id)
+    await hook.send(
+        content=url,
+        username=author.nick or author.name,
+        avatar_url=message.author.display_avatar,
+    )
     logger.debug("Message sent")
     return
 
@@ -79,7 +85,7 @@ def main(args: Type[ParserArguments]) -> None:
         logger.error("Discord token not found. Cannot login.")
         return
     if args.imgur:
-        client.asset_type = AssetType.IMGUR
+        client.asset_type = mugiclient.AssetType.IMGUR
     client.run(token)
 
 
@@ -114,6 +120,5 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.DEBUG if args.debug else logging.INFO,
     )
-    logging.getLogger("requests").setLevel(logging.WARNING)
-
+    logging.getLogger("discord").setLevel(logging.WARNING)
     main(args=args)

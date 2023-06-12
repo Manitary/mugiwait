@@ -8,10 +8,14 @@ from resources.commentfaces import COMMENTFACES_URL
 
 logger = logging.getLogger(__name__)
 
+PREFIX = "#"
+
 GITHUB_PREVIEW_URL = (
     "https://raw.githubusercontent.com/r-anime/"
     "comment-face-assets/master/preview/{type}/{commentface}"
 )
+
+AVATAR_PATH = Path("src/resources/mugiwait_avatar.png")
 
 
 class AssetType(Enum):
@@ -29,6 +33,11 @@ class Mugiwait(discord.Client):
     @asset_type.setter
     def asset_type(self, value: AssetType) -> None:
         self._asset_type = value
+
+
+def parse_message_text(text: str) -> str:
+    """Remove the prefix and return the commentface code."""
+    return text[len(PREFIX) :]
 
 
 def get_url_imgur(commentface: str) -> str:
@@ -53,3 +62,35 @@ MESSAGE_FUNCTION = {
     AssetType.GITHUB: get_url_github,
     AssetType.IMGUR: get_url_imgur,
 }
+
+
+def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
+    """Return whether the bot will further analyse the message contents."""
+    if message.webhook_id:
+        logger.debug("Ignoring webhook message")
+        return False
+    if message.author == client.user:
+        logger.debug("Ignoring message from self")
+        return False
+    if not isinstance(message.channel, discord.TextChannel):
+        logger.debug("Ignoring message from wrong channel type")
+        return False
+    if not message.content.startswith(PREFIX):
+        logger.debug("Ignoring message without the right prefix")
+        return False
+    if not message.guild:
+        logger.debug("The message does not have a guild (?)")
+        return False
+    return True
+
+
+async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.Webhook:
+    """Return the webhook with given name; create one if it does not exist."""
+    hook_reason = "mugi"
+    while not (hook := discord.utils.get(await channel.webhooks(), name=hook_name)):
+        with AVATAR_PATH.open("rb") as f:
+            await channel.create_webhook(
+                name=hook_name, reason=hook_reason, avatar=f.read()
+            )
+
+    return hook
