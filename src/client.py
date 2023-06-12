@@ -39,6 +39,9 @@ def get_url_imgur(commentface: str) -> str:
 def get_url_github(commentface: str) -> str:
     """Return the Github URL matching the commentface code."""
     commentface_paths = list(Path().glob(f"src/assets/preview/*/{commentface}.*"))
+    if not commentface_paths:
+        logger.debug("Commentface %s not found", commentface)
+        return ""
     if len(commentface_paths) > 1:
         logger.warning("%d valid paths found", len(commentface_paths))
     folder, commentface = commentface_paths[0].parts[-2:]
