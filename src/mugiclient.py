@@ -1,4 +1,5 @@
 import logging
+import re
 from enum import Enum, auto
 from pathlib import Path
 
@@ -8,14 +9,12 @@ from resources.commentfaces import COMMENTFACES_URL
 
 logger = logging.getLogger(__name__)
 
-PREFIX = "#"
-
+RE_COMMENTFACE = re.compile(r"\[.*\]\(#([^\s]+).*\)")
+AVATAR_PATH = Path("src/resources/mugiwait_avatar.png")
 GITHUB_PREVIEW_URL = (
     "https://raw.githubusercontent.com/r-anime/"
     "comment-face-assets/master/preview/{type}/{commentface}"
 )
-
-AVATAR_PATH = Path("src/resources/mugiwait_avatar.png")
 
 
 class AssetType(Enum):
@@ -35,9 +34,28 @@ class Mugiwait(discord.Client):
         self._asset_type = value
 
 
-def parse_message_text(text: str) -> str:
-    """Remove the prefix and return the commentface code."""
-    return text[len(PREFIX) :]
+# Commentface formats
+
+
+def get_commentface_short(text: str) -> str:
+    """Return the commentface code in ``#commentface`` format."""
+    return text[1:]
+
+
+def get_commentface_full(text: str) -> str:
+    """Return the commentface code in ``[](#commentface)`` format."""
+    if match := RE_COMMENTFACE.match(text):
+        return match.group(1)
+    return ""
+
+
+PREFIXES = {
+    "#": get_commentface_short,
+    "[": get_commentface_full,
+}
+
+
+# Commentface retrieval
 
 
 def get_url_imgur(commentface: str) -> str:
@@ -63,6 +81,8 @@ MESSAGE_FUNCTION = {
     AssetType.IMGUR: get_url_imgur,
 }
 
+# Other
+
 
 def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     """Return whether the bot will further analyse the message contents."""
@@ -75,7 +95,7 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     if not isinstance(message.channel, discord.TextChannel):
         logger.debug("Ignoring message from wrong channel type")
         return False
-    if not message.content.startswith(PREFIX):
+    if message.content[0] not in PREFIXES:
         logger.debug("Ignoring message without the right prefix")
         return False
     if not message.guild:
@@ -94,3 +114,10 @@ async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.W
             )
 
     return hook
+
+
+def get_commentface(assets: AssetType, text: str) -> str:
+    """Return the commentface code from the text, using the assets of choice."""
+    code = MESSAGE_FUNCTION[assets](PREFIXES[text[0]](text))
+    logger.info("Extracted code: %s", code)
+    return code

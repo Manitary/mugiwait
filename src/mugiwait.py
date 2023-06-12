@@ -54,9 +54,7 @@ async def on_message(message: discord.Message) -> None:
     if not mugiclient.is_valid_message(message=message, client=client):
         return
     logger.info("Processing message: %s", message.content)
-    url = mugiclient.MESSAGE_FUNCTION[client.asset_type](
-        mugiclient.parse_message_text(message.content)
-    )
+    url = mugiclient.get_commentface(assets=client.asset_type, text=message.content)
     if not url:
         logger.info("Invalid message, could not retrieve URL")
         return
