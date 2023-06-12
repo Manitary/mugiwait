@@ -31,6 +31,7 @@ class ParserArguments:
     log_dir: str
     debug: bool
     imgur: bool
+    dev: bool
 
 
 @client.event
@@ -73,7 +74,7 @@ async def on_message(message: discord.Message) -> None:
 
 def main(args: Type[ParserArguments]) -> None:
     """The main loop."""
-    token = os.getenv("TOKEN")
+    token = os.getenv("TOKEN_DEV") if args.dev else os.getenv("TOKEN")
     if not token:
         logger.error("Discord token not found. Cannot login.")
         return
@@ -96,6 +97,9 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="use Imgur assets (default: Github)",
+    )
+    parser.add_argument(
+        "--dev", action="store_true", default=False, help="run in developer mode"
     )
     args = parser.parse_args(namespace=ParserArguments)
     os.makedirs(args.log_dir, exist_ok=True)
