@@ -1,6 +1,8 @@
+import itertools
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
 
@@ -21,8 +23,15 @@ RE_COMMENTFACE = {
 AVATAR_PATH = Path("src/resources/mugiwait_avatar.png")
 GITHUB_PREVIEW_URL = (
     "https://raw.githubusercontent.com/r-anime/"
-    "comment-face-assets/master/preview/{type}/{commentface}"
+    "comment-face-assets/master/{relative_path}"
 )
+SEASONS = ("winter", "spring", "summer", "fall")
+YEAR_RANGE = range(datetime.utcnow().year, 2021, -1)
+SEASONS_LIST = [f"{year} {season}" for year in YEAR_RANGE for season in SEASONS[::-1]]
+
+
+class MugiError(Exception):
+    """Generic exception for mugi."""
 
 
 class AssetType(Enum):
@@ -50,16 +59,56 @@ def get_url_imgur(commentface: str) -> str:
     return COMMENTFACES_URL.get(commentface, "")
 
 
+IMAGES_PATHS = itertools.chain(
+    (
+        "src/assets/preview/*/{commentface}.*",
+        "src/assets/source_seasonal_faces/hallOfFame/{commentface}.*",
+        tuple(itertools.chain("src/assets/source_seasonal_faces/{season}/")),
+    )
+)
+
+
+def get_seasonal_path(commentface: str) -> Path:
+    """Return the path of a seasonal commentface.
+
+    If not available, raise an exception.
+    Only return the latest season."""
+    for season in SEASONS_LIST:
+        if path := list(
+            Path().glob(
+                f"src/assets/source_seasonal_faces/{season}/source/{commentface}/*.*"
+            )
+        ):
+            return path[0]
+    raise MugiError()
+
+
 def get_url_github(commentface: str) -> str:
     """Return the Github URL matching the commentface code."""
-    commentface_paths = list(Path().glob(f"src/assets/preview/*/{commentface}.*"))
+    if commentface.startswith("seasonal"):
+        try:
+            commentface_paths = [get_seasonal_path(commentface)]
+        except MugiError:
+            logger.warning("Seasonal commentface %s not found", commentface)
+            return ""
+    else:
+        commentface_paths = list(
+            itertools.chain(
+                Path().glob(
+                    f"src/assets/preview/*/{commentface}.*",
+                ),
+                Path().glob(
+                    f"src/assets/source_seasonal_faces/hallOfFame/*/{commentface}.*",
+                ),
+            )
+        )
     if not commentface_paths:
         logger.debug("Commentface %s not found", commentface)
         return ""
     if len(commentface_paths) > 1:
         logger.warning("%d valid paths found", len(commentface_paths))
-    folder, commentface = commentface_paths[0].parts[-2:]
-    url = GITHUB_PREVIEW_URL.format(type=folder, commentface=commentface)
+    relative_path = "/".join(commentface_paths[0].parts[2:])  # remove src/assets
+    url = GITHUB_PREVIEW_URL.format(relative_path=relative_path).replace(" ", "%20")
     return url
 
 
