@@ -78,6 +78,7 @@ async def on_message(message: discord.Message) -> None:
                 content=content,
                 username=author.nick or author.name,
                 avatar_url=message.author.display_avatar,
+                allowed_mentions=discord.AllowedMentions(everyone=False),
             )
     logger.debug("Message sent")
     return
