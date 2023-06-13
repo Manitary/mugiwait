@@ -5,12 +5,15 @@ import logging
 import os
 from dataclasses import dataclass
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 from typing import Type
 
 import discord
 from dotenv import load_dotenv
 
 import mugiclient
+
+os.chdir(Path(__file__).parent.parent)
 
 logger = logging.getLogger(__name__)
 
