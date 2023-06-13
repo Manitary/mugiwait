@@ -97,10 +97,15 @@ def main(args: Type[ParserArguments]) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False, help="run in debug mode"
+        "-d", "--debug", action="store_true", default=False, help="additional logging"
     )
     parser.add_argument(
-        "-l", "--log-dir", dest="log_dir", default=LOG_DIR, help="set the log directory"
+        "-l",
+        "--log-dir",
+        metavar="L",
+        dest="log_dir",
+        default=LOG_DIR,
+        help="set the log directory",
     )
     parser.add_argument(
         "-i",
