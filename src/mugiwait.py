@@ -54,24 +54,31 @@ async def on_message(message: discord.Message) -> None:
     if not mugiclient.is_valid_message(message=message, client=client):
         return
     logger.info("Processing message: %s", message.content)
-    url = mugiclient.get_commentface(assets=client.asset_type, text=message.content)
-    if not url:
+
+    contents = mugiclient.compose_messages(
+        assets=client.asset_type, text=message.content
+    )
+    if not contents:
         logger.info("Invalid message, could not retrieve URL")
         return
-    logger.info("URL found: %s", url)
+
     hook = await mugiclient.get_webhook(
         channel=message.channel, hook_name=str(client.user)
     )
+
     logger.debug("Deleting message...")
     await message.delete()
+
     logger.debug("Message deleted. Sending message...")
     guild = await client.fetch_guild(message.guild.id)
     author = await guild.fetch_member(message.author.id)
-    await hook.send(
-        content=url,
-        username=author.nick or author.name,
-        avatar_url=message.author.display_avatar,
-    )
+    for content in contents:
+        if content:
+            await hook.send(
+                content=content,
+                username=author.nick or author.name,
+                avatar_url=message.author.display_avatar,
+            )
     logger.debug("Message sent")
     return
 

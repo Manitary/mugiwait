@@ -1,5 +1,6 @@
 import logging
 import re
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
@@ -9,7 +10,14 @@ from resources.commentfaces import COMMENTFACES_URL
 
 logger = logging.getLogger(__name__)
 
-RE_COMMENTFACE = re.compile(r"\[.*\]\(#([^\s]+).*\)")
+RE_COMMENTFACE = {
+    # #commentface hovertext
+    "#": re.compile(r"#(?P<commentface>[^\s]+)\s?(?P<hovertext>.*)"),
+    # [overlay](#commentface "hovertext")
+    "[": re.compile(
+        r"\[(?P<overlay>.*)\]\(#(?P<commentface>[^\s]+)\s?\"?(?P<hovertext>[^\"]*)\"?\)"
+    ),
+}
 AVATAR_PATH = Path("src/resources/mugiwait_avatar.png")
 GITHUB_PREVIEW_URL = (
     "https://raw.githubusercontent.com/r-anime/"
@@ -32,27 +40,6 @@ class Mugiwait(discord.Client):
     @asset_type.setter
     def asset_type(self, value: AssetType) -> None:
         self._asset_type = value
-
-
-# Commentface formats
-
-
-def get_commentface_short(text: str) -> str:
-    """Return the commentface code in ``#commentface`` format."""
-    return text[1:]
-
-
-def get_commentface_full(text: str) -> str:
-    """Return the commentface code in ``[](#commentface)`` format."""
-    if match := RE_COMMENTFACE.match(text):
-        return match.group(1)
-    return ""
-
-
-PREFIXES = {
-    "#": get_commentface_short,
-    "[": get_commentface_full,
-}
 
 
 # Commentface retrieval
@@ -95,7 +82,7 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     if not isinstance(message.channel, discord.TextChannel):
         logger.debug("Ignoring message from wrong channel type")
         return False
-    if message.content[0] not in PREFIXES:
+    if message.content[0] not in RE_COMMENTFACE:
         logger.debug("Ignoring message without the right prefix")
         return False
     if not message.guild:
@@ -116,8 +103,41 @@ async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.W
     return hook
 
 
-def get_commentface(assets: AssetType, text: str) -> str:
-    """Return the commentface code from the text, using the assets of choice."""
-    code = MESSAGE_FUNCTION[assets](PREFIXES[text[0]](text))
-    logger.info("Extracted code: %s", code)
-    return code
+@dataclass
+class ParsedMessage:
+    commentface: str = ""
+    overlay: str = ""
+    hovertext: str = ""
+
+
+def parse_code(assets: AssetType, text: str) -> ParsedMessage:
+    """Return the commentface and other text matching the input."""
+    prefix = text[0]
+    match = RE_COMMENTFACE[prefix].match(text)
+    if not match:
+        logger.debug("No match found")
+        return ParsedMessage()
+    match_dict = match.groupdict()
+    commentface = match_dict.get("commentface", "")
+    if commentface:
+        commentface = MESSAGE_FUNCTION[assets](commentface)
+        logger.info("URL found: %s", commentface)
+    overlay = match_dict.get("overlay", "")
+    hovertext = match_dict.get("hovertext", "")
+    message = ParsedMessage(
+        commentface=commentface, overlay=overlay, hovertext=hovertext
+    )
+    logger.info("Message contents: %s", message)
+    return message
+
+
+def compose_messages(assets: AssetType, text: str) -> list[str]:
+    """Return a list of message contents to send in the channel."""
+    contents: list[str] = []
+    parsed_text = parse_code(assets=assets, text=text)
+    if not parsed_text.commentface:
+        return contents
+    contents.append(parsed_text.overlay)
+    contents.append(parsed_text.commentface)
+    contents.append(parsed_text.hovertext)
+    return contents
