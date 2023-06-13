@@ -131,7 +131,7 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     if not isinstance(message.channel, discord.TextChannel):
         logger.debug("Ignoring message from wrong channel type")
         return False
-    if message.content[0] not in RE_COMMENTFACE:
+    if not message.content or message.content[0] not in RE_COMMENTFACE:
         logger.debug("Ignoring message without the right prefix")
         return False
     if not message.guild:
