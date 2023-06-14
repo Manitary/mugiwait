@@ -1,6 +1,6 @@
 # \#MugiWait
 
-A discord bot to send [r/anime commentfaces][r/anime] ([Github source][r/anime github])
+A discord bot to send [r/anime commentfaces][r/anime] ([original source][r/anime github])
 
 ## How to run
 
@@ -27,7 +27,10 @@ Additional options:
 
 - `-l` select the log directory (default: `logs`)
 - `-d` run with additional logging (debug)
-- `-i` use Imgur as source of links instead of Github (use the links in `src/resources/commentfaces.py`)
+- `-i` send Imgur links instead of uploading image files (use the links in `src/resources/commentfaces.py`)
+- `-g` send Github links instead of uploading image files (use the same assets as [r/anime][r/anime github])
+
+Note: Imgur/Github links will not display if the user disable link previews.
 
 ## How to use
 
