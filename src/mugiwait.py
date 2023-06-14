@@ -17,8 +17,6 @@ os.chdir(Path(__file__).parent.parent)
 
 logger = logging.getLogger(__name__)
 
-LOG_DIR = "logs"
-
 
 load_dotenv()
 intents = discord.Intents.default()
@@ -28,11 +26,12 @@ client = mugiclient.Mugiwait(intents=intents)
 
 @dataclass
 class ParserArguments:
-    """Arguments passed when running the bot."""
+    """Arguments passed when running mugi."""
 
     log_dir: str
     debug: bool
     imgur: bool
+    github: bool
     dev: bool
 
 
@@ -58,11 +57,9 @@ async def on_message(message: discord.Message) -> None:
         return
     logger.info("Processing message: %s", message.content)
 
-    contents = mugiclient.compose_messages(
-        assets=client.asset_type, text=message.content
-    )
-    if not contents:
-        logger.info("Invalid message, could not retrieve URL")
+    mugi_messages = client.build_messages_from_message(message.content)
+    if not mugi_messages:
+        logger.info("Invalid message, could not build commentface")
         return
 
     hook = await mugiclient.get_webhook(
@@ -75,14 +72,15 @@ async def on_message(message: discord.Message) -> None:
     logger.debug("Message deleted. Sending message...")
     guild = await client.fetch_guild(message.guild.id)
     author = await guild.fetch_member(message.author.id)
-    for content in contents:
-        if content:
-            await hook.send(
-                content=content,
-                username=author.nick or author.name,
-                avatar_url=message.author.display_avatar,
-                allowed_mentions=discord.AllowedMentions(everyone=False),
-            )
+    for mugi_message in mugi_messages:
+        logger.debug("Sending message: %s", mugi_message)
+        await hook.send(
+            username=author.nick or author.name,
+            avatar_url=message.author.display_avatar,
+            allowed_mentions=discord.AllowedMentions(everyone=False),
+            **mugi_message.contents,
+        )
+
     logger.debug("Message sent")
     return
 
@@ -94,12 +92,20 @@ def main(args: Type[ParserArguments]) -> None:
         logger.error("Discord token not found. Cannot login.")
         return
     if args.imgur:
+        logger.info("Using Imgur URLs")
         client.asset_type = mugiclient.AssetType.IMGUR
+    if args.github:
+        logger.info("Using Github URLs")
+        client.asset_type = mugiclient.AssetType.GITHUB
     client.run(token)
 
 
-if __name__ == "__main__":
+def create_parser() -> argparse.ArgumentParser:
+    """Return the parser used by the command."""
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dev", action="store_true", default=False, help="run in developer mode"
+    )
     parser.add_argument(
         "-d", "--debug", action="store_true", default=False, help="additional logging"
     )
@@ -108,20 +114,29 @@ if __name__ == "__main__":
         "--log-dir",
         metavar="L",
         dest="log_dir",
-        default=LOG_DIR,
+        default="logs",
         help="set the log directory",
     )
-    parser.add_argument(
+    asset_type = parser.add_mutually_exclusive_group()
+    asset_type.add_argument(
         "-i",
         "--imgur",
         action="store_true",
         default=False,
-        help="use Imgur assets (default: Github)",
+        help="use Imgur assets (default: file upload)",
     )
-    parser.add_argument(
-        "--dev", action="store_true", default=False, help="run in developer mode"
+    asset_type.add_argument(
+        "-g",
+        "--github",
+        action="store_true",
+        default=False,
+        help="use Github assets (default: file upload)",
     )
-    args = parser.parse_args(namespace=ParserArguments)
+    return parser
+
+
+if __name__ == "__main__":
+    args = create_parser().parse_args(namespace=ParserArguments)
     os.makedirs(args.log_dir, exist_ok=True)
     log_file = f"{args.log_dir}/mugiwait.log"
     logging.basicConfig(
