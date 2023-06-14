@@ -62,16 +62,15 @@ async def on_message(message: discord.Message) -> None:
         logger.info("Invalid message, could not build commentface")
         return
 
+    logger.debug("Getting the hook...")
     hook = await mugiclient.get_webhook(
         channel=message.channel, hook_name=str(client.user)
     )
 
-    logger.debug("Deleting message...")
+    logger.debug("Hook found. Deleting message...")
     await message.delete()
-
     logger.debug("Message deleted. Sending message...")
-    guild = await client.fetch_guild(message.guild.id)
-    author = await guild.fetch_member(message.author.id)
+    author = await message.guild.fetch_member(message.author.id)
     for mugi_message in mugi_messages:
         logger.debug("Sending message: %s", mugi_message)
         await hook.send(
@@ -81,7 +80,7 @@ async def on_message(message: discord.Message) -> None:
             **mugi_message.contents,
         )
 
-    logger.debug("Message sent")
+    logger.debug("Messages sent")
     return
 
 
