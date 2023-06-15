@@ -30,9 +30,9 @@ Additional options:
 - `-i` send Imgur links instead of uploading image files (use the links in `src/resources/commentfaces.py`)
 - `-g` send Github links instead of uploading image files (use the same assets as [r/anime][r/anime github])
 
-Note: Imgur/Github links will not display if the user disable link previews.
+Note: Imgur/Github links will not display for users who disabled link previews.
 
-## How to use
+## How to use (via message)
 
 Mugi reacts to messages with two formats:
 
@@ -49,6 +49,16 @@ Mugi will not react to:
 - Messages not starting with `#` or `[`
 - Messages formatted incorrectly
 - Incorrect commentface code
+
+## How to use (via slash command)
+
+Type `/mugi` to bring up the command.
+
+The first parameter is the commentface code; it comes with an autocomplete suggestion box, making mugi easier to use as one does not need to know all commentface codes to a tee.
+
+The second parameter is optional, and can include any additional text to send together with the commentface.
+
+Mugi will notify you (and only you) if you submit an incorrect commentface code.
 
 [r/anime]: https://old.reddit.com/r/anime/wiki/commentfaces
 [r/anime github]: https://github.com/r-anime/comment-face-assets
