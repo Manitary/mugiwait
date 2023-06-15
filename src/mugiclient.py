@@ -51,7 +51,7 @@ def get_seasonal_faces() -> dict[str, Path]:
         if paths := list(
             Path().glob(f"src/assets/source_seasonal_faces/{season}/source/*/*.*")
         ):
-            return {path.parts[-2]: path for path in paths}
+            return {path.parts[-2].lower(): path for path in paths}
     raise MugiError()
 
 
@@ -98,24 +98,30 @@ class MugiMessage:
 
 def build_imgur_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
-    return MugiMessage(content=COMMENTFACES_URL.get(commentface, ""))
+    url = COMMENTFACES_URL.get(commentface, None)
+    if not url:
+        raise MugiError()
+    logger.debug("URL found: %s", url)
+    return MugiMessage(content=url)
 
 
 def build_github_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Github assets."""
     commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
-        return MugiMessage()
+        raise MugiError()
+    logger.debug("Path found: %s", commentface_path)
     relative_path = "/".join(commentface_path.parts[2:])  # remove src/assets
     url = GITHUB_PREVIEW_URL.format(relative_path=relative_path).replace(" ", "%20")
     return MugiMessage(content=url)
 
 
-def build_file_message(commentface: str) -> MugiMessage | None:
+def build_file_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on local assets."""
     commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
-        return None
+        raise MugiError()
+    logger.debug("Path found: %s", commentface_path)
     return MugiMessage(file=discord.File(commentface_path))
 
 
@@ -134,7 +140,7 @@ class Mugiwait(discord.Bot):
 
         The type of asset to use during the session.
 
-    Defaults to FILE, can be changed to IMGUR or GITHUB with optional arguments
+    Default: FILE. It can be changed to IMGUR or GITHUB with optional arguments
     when launching mugi (-i and -g, respectively).
 
     Accessed via the ``asset_type`` property.
@@ -165,15 +171,17 @@ class Mugiwait(discord.Bot):
         match = RE_COMMENTFACE[prefix].match(text)
         if not match:
             logger.debug("No match found")
-            return messages
+            raise MugiError()
+
         match_dict = match.groupdict()
         commentface = match_dict.get("commentface", "")
         if not commentface:
             logger.debug("No commentface found")
-            return messages
+            raise MugiError()
 
-        commentface_message = BUILD_MESSAGE[self.asset_type](commentface)
-        if not commentface_message:
+        try:
+            commentface_message = BUILD_MESSAGE[self.asset_type](commentface)
+        except MugiError:
             logger.debug("No commentface found")
             return messages
 
@@ -187,6 +195,24 @@ class Mugiwait(discord.Bot):
         if hovertext := match_dict.get("hovertext", ""):
             messages.append(MugiMessage(content=hovertext))
 
+        return messages
+
+    def build_messages_from_command(
+        self, commentface: str, text: str, path: Path
+    ) -> list[MugiMessage]:
+        """Return a list of message contents to send in response to a valid slash command."""
+        if self.asset_type == AssetType.FILE:
+            return [MugiMessage(content=text, file=discord.File(path))]
+        messages: list[MugiMessage] = []
+        try:
+            messages.append(BUILD_MESSAGE[self.asset_type](commentface))
+        except MugiError as e:
+            logger.error(
+                "Invalid commentfaces should have been already excluded by this point"
+            )
+            raise e
+        if text:
+            messages.append(MugiMessage(content=text))
         return messages
 
 
@@ -229,3 +255,19 @@ async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
         for commentface in COMMENTFACES
         if commentface.startswith(ctx.value.lower())
     ]
+
+
+def is_valid_interaction(interaction: discord.Interaction) -> bool:
+    """Return False if the slash command interaction is malformed."""
+    if not interaction.user:
+        logger.warning("Sender of the command not found")
+        return False
+    if not isinstance(interaction.user, discord.Member):
+        logger.warning(
+            "Sender of the command is not a server member: %s", interaction.user
+        )
+        return False
+    if not isinstance(interaction.channel, discord.TextChannel):
+        logger.warning("Command not coming from a TextChannel: %s", interaction.channel)
+        return False
+    return True

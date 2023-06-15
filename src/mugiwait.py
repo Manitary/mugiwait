@@ -49,41 +49,45 @@ async def autocomplete_example(
     ctx: discord.ApplicationContext, commentface: str, text: str = ""
 ) -> None:
     """Send a commentface."""
+    if not mugiclient.is_valid_interaction(ctx.interaction):
+        logger.debug("Invalid interaction.")
+        return
+    author: discord.Member = ctx.interaction.user
+    channel: discord.TextChannel = ctx.interaction.channel
+    username = author.nick or author.name
+    logger.info(
+        "Command detected. Commentface: %s. Additional text: %s. Sent by: %s",
+        commentface,
+        text,
+        username,
+    )
     path = mugiclient.COMMENTFACES.get(commentface, None)
     if not path:
+        logger.debug("Invalid commentface: %s", commentface)
         await ctx.interaction.response.send_message(
             f"Commentface {commentface} not found", ephemeral=True
         )
         return
     await ctx.interaction.response.defer()
     logger.debug("Getting the hook...")
-    hook = await mugiclient.get_webhook(
-        channel=ctx.interaction.channel, hook_name=str(client.user)
-    )
+    hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     logger.debug("Sending message...")
-    if client.asset_type == mugiclient.AssetType.FILE:
-        await hook.send(
-            content=text,
-            username=ctx.interaction.user.nick or ctx.interaction.user.name,
-            avatar_url=ctx.interaction.user.display_avatar,
-            allowed_mentions=discord.AllowedMentions(everyone=False),
-            file=discord.File(path),
+    try:
+        messages = client.build_messages_from_command(
+            commentface=commentface, text=text, path=path
         )
-    else:
-        messages = [
-            mugiclient.MugiMessage(
-                content=mugiclient.BUILD_MESSAGE[client.asset_type](commentface)
-            )
-        ]
-        if text:
-            messages.append(mugiclient.MugiMessage(content=text))
-        for mugi_message in messages:
-            await hook.send(
-                username=ctx.interaction.user.nick or ctx.interaction.user.name,
-                avatar_url=ctx.interaction.user.display_avatar,
-                allowed_mentions=discord.AllowedMentions(everyone=False),
-                **mugi_message.contents,
-            )
+        logger.debug("Message(s) generated")
+    except mugiclient.MugiError:
+        logger.error("Could not build messages")
+        return
+    for mugi_message in messages:
+        logger.debug("Sending message: %s", mugi_message)
+        await hook.send(
+            username=username,
+            avatar_url=author.display_avatar,
+            allowed_mentions=discord.AllowedMentions(everyone=False),
+            **mugi_message.contents,
+        )
     await ctx.interaction.delete_original_response()
 
 
@@ -104,13 +108,14 @@ async def on_ready() -> None:
 @client.event
 async def on_message(message: discord.Message) -> None:
     """React to new messages."""
-    logger.debug("Message detected")
     if not mugiclient.is_valid_message(message=message, client=client):
         return
     logger.info("Processing message: %s", message.content)
 
-    mugi_messages = client.build_messages_from_message(message.content)
-    if not mugi_messages:
+    try:
+        mugi_messages = client.build_messages_from_message(message.content)
+        logger.debug("Message(s) generated")
+    except mugiclient.MugiError:
         logger.info("Invalid message, could not build commentface")
         return
 
@@ -121,7 +126,8 @@ async def on_message(message: discord.Message) -> None:
 
     logger.debug("Hook found. Deleting message...")
     await message.delete()
-    logger.debug("Message deleted. Sending message...")
+
+    logger.debug("Message deleted. Sending message(s)...")
     author = await message.guild.fetch_member(message.author.id)
     for mugi_message in mugi_messages:
         logger.debug("Sending message: %s", mugi_message)
@@ -131,8 +137,7 @@ async def on_message(message: discord.Message) -> None:
             allowed_mentions=discord.AllowedMentions(everyone=False),
             **mugi_message.contents,
         )
-
-    logger.debug("Messages sent")
+    logger.debug("Message(s) sent")
     return
 
 
