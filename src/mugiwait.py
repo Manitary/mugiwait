@@ -68,7 +68,6 @@ async def autocomplete_example(
             f"Commentface {commentface} not found", ephemeral=True
         )
         return
-    await ctx.interaction.response.defer()
     logger.debug("Getting the hook...")
     hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     logger.debug("Sending message...")
@@ -79,14 +78,19 @@ async def autocomplete_example(
         logger.debug("Message(s) generated")
     except mugiclient.MugiError:
         logger.error("Could not build messages")
+        await ctx.interaction.response.send_message(
+            "An unexpected error occurred.", ephemeral=True
+        )
         return
+    await ctx.interaction.response.defer()
     for mugi_message in messages:
         logger.debug("Sending message: %s", mugi_message)
         await hook.send(
+            content=mugi_message.content or discord.MISSING,
+            file=mugi_message.file or discord.MISSING,
             username=username,
             avatar_url=author.display_avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
-            **mugi_message.contents,
         )
     await ctx.interaction.delete_original_response()
 
@@ -132,10 +136,11 @@ async def on_message(message: discord.Message) -> None:
     for mugi_message in mugi_messages:
         logger.debug("Sending message: %s", mugi_message)
         await hook.send(
+            content=mugi_message.content or discord.MISSING,
+            file=mugi_message.file or discord.MISSING,
             username=author.nick or author.name,
             avatar_url=message.author.display_avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
-            **mugi_message.contents,
         )
     logger.debug("Message(s) sent")
     return

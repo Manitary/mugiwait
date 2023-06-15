@@ -85,16 +85,6 @@ class MugiMessage:
     content: str = ""
     file: discord.File | None = None
 
-    @property
-    def contents(self) -> dict[str, str | discord.File | None]:
-        """Return the contents as dictionary."""
-        # dict keys must match ``discord.Webhook.send`` arguments
-        data = {
-            "content": self.content,
-            "file": self.file,
-        }
-        return {k: v for k, v in data.items() if v}
-
 
 def build_imgur_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
