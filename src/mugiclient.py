@@ -178,7 +178,10 @@ class Mugiwait(discord.Bot):
             return messages
 
         overlay = match_dict.get("overlay", "")
-        commentface_message.content = overlay
+        if self.asset_type == AssetType.FILE:
+            commentface_message.content = overlay
+        elif overlay:
+            messages.append(MugiMessage(content=overlay))
         messages.append(commentface_message)
 
         if hovertext := match_dict.get("hovertext", ""):
