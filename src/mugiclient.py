@@ -43,6 +43,38 @@ class AssetType(Enum):
     FILE = auto()
 
 
+def get_seasonal_faces() -> dict[str, Path]:
+    """Return a dict commentface -> file path for seasonal commentfaces.
+
+    Only use the most recent set of seasonal commentfaces."""
+    for season in SEASONS_LIST:
+        if paths := list(
+            Path().glob(f"src/assets/source_seasonal_faces/{season}/source/*/*.*")
+        ):
+            return {path.parts[-2]: path for path in paths}
+    raise MugiError()
+
+
+def get_comment_faces() -> dict[str, Path]:
+    """Return a dict commentface -> file path."""
+    faces = {
+        path.stem.lower(): path
+        for path in itertools.chain(
+            Path().glob(
+                "src/assets/preview/*/*.*",
+            ),
+            Path().glob(
+                "src/assets/source_seasonal_faces/hallOfFame/*/*.*",
+            ),
+        )
+    }
+    faces |= get_seasonal_faces()
+    return faces
+
+
+COMMENTFACES = get_comment_faces()
+
+
 @dataclass
 class MugiMessage:
     """Contents of the message to be sent.
@@ -71,7 +103,7 @@ def build_imgur_message(commentface: str) -> MugiMessage:
 
 def build_github_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Github assets."""
-    commentface_path = get_commentface_file_path(commentface)
+    commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
         return MugiMessage()
     relative_path = "/".join(commentface_path.parts[2:])  # remove src/assets
@@ -81,7 +113,7 @@ def build_github_message(commentface: str) -> MugiMessage:
 
 def build_file_message(commentface: str) -> MugiMessage | None:
     """Return the contents of the message based on local assets."""
-    commentface_path = get_commentface_file_path(commentface)
+    commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
         return None
     return MugiMessage(file=discord.File(commentface_path))
@@ -155,48 +187,6 @@ class Mugiwait(discord.Bot):
         return messages
 
 
-def get_seasonal_path(commentface: str) -> Path:
-    """Return the path of a seasonal commentface.
-
-    If not available, raise an exception.
-
-    Only return the latest possible season."""
-    for season in SEASONS_LIST:
-        if path := list(
-            Path().glob(
-                f"src/assets/source_seasonal_faces/{season}/source/{commentface}/*.*"
-            )
-        ):
-            return path[0]
-    raise MugiError()
-
-
-def get_commentface_file_path(commentface: str) -> Path | None:
-    """Return the asset file path for the given commentface code, if it exists."""
-    if commentface.startswith("seasonal"):
-        try:
-            return get_seasonal_path(commentface)
-        except MugiError:
-            logger.warning("Seasonal commentface %s not found", commentface)
-            return None
-    commentface_paths = list(
-        itertools.chain(
-            Path().glob(
-                f"src/assets/preview/*/{commentface}.*",
-            ),
-            Path().glob(
-                f"src/assets/source_seasonal_faces/hallOfFame/*/{commentface}.*",
-            ),
-        )
-    )
-    if not commentface_paths:
-        logger.info("Commentface %s not found", commentface)
-        return None
-    if len(commentface_paths) > 1:
-        logger.warning("%d valid paths found", len(commentface_paths))
-    return commentface_paths[0]
-
-
 def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     """Return whether mugi will further analyse the message contents."""
     if message.webhook_id:
@@ -227,38 +217,6 @@ async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.W
             )
 
     return hook
-
-
-def get_seasonal_faces() -> dict[str, Path]:
-    """Return a dict commentface -> file path for seasonal commentfaces.
-
-    Only use the most recent set of seasonal commentfaces."""
-    for season in SEASONS_LIST:
-        if paths := list(
-            Path().glob(f"src/assets/source_seasonal_faces/{season}/source/*/*.*")
-        ):
-            return {path.parts[-2]: path for path in paths}
-    raise MugiError()
-
-
-def get_comment_faces() -> dict[str, Path]:
-    """Return a dict commentface -> file path."""
-    faces = {
-        path.stem.lower(): path
-        for path in itertools.chain(
-            Path().glob(
-                "src/assets/preview/*/*.*",
-            ),
-            Path().glob(
-                "src/assets/source_seasonal_faces/hallOfFame/*/*.*",
-            ),
-        )
-    }
-    faces |= get_seasonal_faces()
-    return faces
-
-
-COMMENTFACES = get_comment_faces()
 
 
 async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
