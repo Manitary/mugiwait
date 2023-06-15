@@ -7,6 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 import discord
+from discord.utils import get as get_hook
 
 from resources.commentfaces import COMMENTFACES_URL
 
@@ -42,6 +43,38 @@ class AssetType(Enum):
     FILE = auto()
 
 
+def get_seasonal_faces() -> dict[str, Path]:
+    """Return a dict commentface -> file path for seasonal commentfaces.
+
+    Only use the most recent set of seasonal commentfaces."""
+    for season in SEASONS_LIST:
+        if paths := list(
+            Path().glob(f"src/assets/source_seasonal_faces/{season}/source/*/*.*")
+        ):
+            return {path.parts[-2].lower(): path for path in paths}
+    raise MugiError()
+
+
+def get_comment_faces() -> dict[str, Path]:
+    """Return a dict commentface -> file path."""
+    faces = {
+        path.stem.lower(): path
+        for path in itertools.chain(
+            Path().glob(
+                "src/assets/preview/*/*.*",
+            ),
+            Path().glob(
+                "src/assets/source_seasonal_faces/hallOfFame/*/*.*",
+            ),
+        )
+    }
+    faces |= get_seasonal_faces()
+    return faces
+
+
+COMMENTFACES = get_comment_faces()
+
+
 @dataclass
 class MugiMessage:
     """Contents of the message to be sent.
@@ -65,24 +98,30 @@ class MugiMessage:
 
 def build_imgur_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
-    return MugiMessage(content=COMMENTFACES_URL.get(commentface, ""))
+    url = COMMENTFACES_URL.get(commentface, None)
+    if not url:
+        raise MugiError()
+    logger.debug("URL found: %s", url)
+    return MugiMessage(content=url)
 
 
 def build_github_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Github assets."""
-    commentface_path = get_commentface_file_path(commentface)
+    commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
-        return MugiMessage()
+        raise MugiError()
+    logger.debug("Path found: %s", commentface_path)
     relative_path = "/".join(commentface_path.parts[2:])  # remove src/assets
     url = GITHUB_PREVIEW_URL.format(relative_path=relative_path).replace(" ", "%20")
     return MugiMessage(content=url)
 
 
-def build_file_message(commentface: str) -> MugiMessage | None:
+def build_file_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on local assets."""
-    commentface_path = get_commentface_file_path(commentface)
+    commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
-        return None
+        raise MugiError()
+    logger.debug("Path found: %s", commentface_path)
     return MugiMessage(file=discord.File(commentface_path))
 
 
@@ -93,7 +132,7 @@ BUILD_MESSAGE = {
 }
 
 
-class Mugiwait(discord.Client):
+class Mugiwait(discord.Bot):
     """Mugified discord client.
 
     Attributes:
@@ -101,7 +140,7 @@ class Mugiwait(discord.Client):
 
         The type of asset to use during the session.
 
-    Defaults to FILE, can be changed to IMGUR or GITHUB with optional arguments
+    Default: FILE. It can be changed to IMGUR or GITHUB with optional arguments
     when launching mugi (-i and -g, respectively).
 
     Accessed via the ``asset_type`` property.
@@ -132,15 +171,17 @@ class Mugiwait(discord.Client):
         match = RE_COMMENTFACE[prefix].match(text)
         if not match:
             logger.debug("No match found")
-            return messages
+            raise MugiError()
+
         match_dict = match.groupdict()
         commentface = match_dict.get("commentface", "")
         if not commentface:
             logger.debug("No commentface found")
-            return messages
+            raise MugiError()
 
-        commentface_message = BUILD_MESSAGE[self.asset_type](commentface)
-        if not commentface_message:
+        try:
+            commentface_message = BUILD_MESSAGE[self.asset_type](commentface)
+        except MugiError:
             logger.debug("No commentface found")
             return messages
 
@@ -156,47 +197,23 @@ class Mugiwait(discord.Client):
 
         return messages
 
-
-def get_seasonal_path(commentface: str) -> Path:
-    """Return the path of a seasonal commentface.
-
-    If not available, raise an exception.
-
-    Only return the latest possible season."""
-    for season in SEASONS_LIST:
-        if path := list(
-            Path().glob(
-                f"src/assets/source_seasonal_faces/{season}/source/{commentface}/*.*"
-            )
-        ):
-            return path[0]
-    raise MugiError()
-
-
-def get_commentface_file_path(commentface: str) -> Path | None:
-    """Return the asset file path for the given commentface code, if it exists."""
-    if commentface.startswith("seasonal"):
+    def build_messages_from_command(
+        self, commentface: str, text: str, path: Path
+    ) -> list[MugiMessage]:
+        """Return a list of message contents to send in response to a valid slash command."""
+        if self.asset_type == AssetType.FILE:
+            return [MugiMessage(content=text, file=discord.File(path))]
+        messages: list[MugiMessage] = []
         try:
-            return get_seasonal_path(commentface)
-        except MugiError:
-            logger.warning("Seasonal commentface %s not found", commentface)
-            return None
-    commentface_paths = list(
-        itertools.chain(
-            Path().glob(
-                f"src/assets/preview/*/{commentface}.*",
-            ),
-            Path().glob(
-                f"src/assets/source_seasonal_faces/hallOfFame/*/{commentface}.*",
-            ),
-        )
-    )
-    if not commentface_paths:
-        logger.info("Commentface %s not found", commentface)
-        return None
-    if len(commentface_paths) > 1:
-        logger.warning("%d valid paths found", len(commentface_paths))
-    return commentface_paths[0]
+            messages.append(BUILD_MESSAGE[self.asset_type](commentface))
+        except MugiError as e:
+            logger.error(
+                "Invalid commentfaces should have been already excluded by this point"
+            )
+            raise e
+        if text:
+            messages.append(MugiMessage(content=text))
+        return messages
 
 
 def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
@@ -222,10 +239,35 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
 async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.Webhook:
     """Return the webhook with given name; create one if it does not exist."""
     hook_reason = "mugi"
-    while not (hook := discord.utils.get(await channel.webhooks(), name=hook_name)):
+    while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
         with AVATAR_PATH.open("rb") as f:
             await channel.create_webhook(
                 name=hook_name, reason=hook_reason, avatar=f.read()
             )
 
     return hook
+
+
+async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
+    """Returns a list of commentfaces that begin with the characters entered so far."""
+    return [
+        commentface
+        for commentface in COMMENTFACES
+        if commentface.startswith(ctx.value.lower())
+    ]
+
+
+def is_valid_interaction(interaction: discord.Interaction) -> bool:
+    """Return False if the slash command interaction is malformed."""
+    if not interaction.user:
+        logger.warning("Sender of the command not found")
+        return False
+    if not isinstance(interaction.user, discord.Member):
+        logger.warning(
+            "Sender of the command is not a server member: %s", interaction.user
+        )
+        return False
+    if not isinstance(interaction.channel, discord.TextChannel):
+        logger.warning("Command not coming from a TextChannel: %s", interaction.channel)
+        return False
+    return True
