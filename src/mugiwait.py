@@ -35,6 +35,42 @@ class ParserArguments:
     dev: bool
 
 
+@client.slash_command(name="mugi")
+@discord.commands.option(
+    "commentface",
+    description="Pick a commentface",
+    autocomplete=mugiclient.get_commentfaces,
+)
+@discord.commands.option(
+    "text",
+    description="Additional text",
+)
+async def autocomplete_example(
+    ctx: discord.ApplicationContext, commentface: str, text: str = ""
+) -> None:
+    """Send a commentface."""
+    path = mugiclient.COMMENTFACES.get(commentface, None)
+    if not path:
+        await ctx.interaction.response.send_message(
+            f"Commentface {commentface} not found", ephemeral=True
+        )
+        return
+    await ctx.interaction.response.defer()
+    logger.debug("Getting the hook...")
+    hook = await mugiclient.get_webhook(
+        channel=ctx.interaction.channel, hook_name=str(client.user)
+    )
+    logger.debug("Sending message...")
+    await hook.send(
+        content=text,
+        username=ctx.interaction.user.nick or ctx.interaction.user.name,
+        avatar_url=ctx.interaction.user.display_avatar,
+        allowed_mentions=discord.AllowedMentions(everyone=False),
+        file=discord.File(path),
+    )
+    await ctx.interaction.delete_original_response()
+
+
 @client.event
 async def on_ready() -> None:
     """Change status when going online."""

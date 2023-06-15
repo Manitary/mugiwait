@@ -7,6 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 import discord
+from discord.utils import get as get_hook
 
 from resources.commentfaces import COMMENTFACES_URL
 
@@ -93,7 +94,7 @@ BUILD_MESSAGE = {
 }
 
 
-class Mugiwait(discord.Client):
+class Mugiwait(discord.Bot):
     """Mugified discord client.
 
     Attributes:
@@ -219,10 +220,51 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
 async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.Webhook:
     """Return the webhook with given name; create one if it does not exist."""
     hook_reason = "mugi"
-    while not (hook := discord.utils.get(await channel.webhooks(), name=hook_name)):
+    while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
         with AVATAR_PATH.open("rb") as f:
             await channel.create_webhook(
                 name=hook_name, reason=hook_reason, avatar=f.read()
             )
 
     return hook
+
+
+def get_seasonal_faces() -> dict[str, Path]:
+    """Return a dict commentface -> file path for seasonal commentfaces.
+
+    Only use the most recent set of seasonal commentfaces."""
+    for season in SEASONS_LIST:
+        if paths := list(
+            Path().glob(f"src/assets/source_seasonal_faces/{season}/source/*/*.*")
+        ):
+            return {path.parts[-2]: path for path in paths}
+    raise MugiError()
+
+
+def get_comment_faces() -> dict[str, Path]:
+    """Return a dict commentface -> file path."""
+    faces = {
+        path.stem.lower(): path
+        for path in itertools.chain(
+            Path().glob(
+                "src/assets/preview/*/*.*",
+            ),
+            Path().glob(
+                "src/assets/source_seasonal_faces/hallOfFame/*/*.*",
+            ),
+        )
+    }
+    faces |= get_seasonal_faces()
+    return faces
+
+
+COMMENTFACES = get_comment_faces()
+
+
+async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
+    """Returns a list of commentfaces that begin with the characters entered so far."""
+    return [
+        commentface
+        for commentface in COMMENTFACES
+        if commentface.startswith(ctx.value.lower())
+    ]
