@@ -61,13 +61,29 @@ async def autocomplete_example(
         channel=ctx.interaction.channel, hook_name=str(client.user)
     )
     logger.debug("Sending message...")
-    await hook.send(
-        content=text,
-        username=ctx.interaction.user.nick or ctx.interaction.user.name,
-        avatar_url=ctx.interaction.user.display_avatar,
-        allowed_mentions=discord.AllowedMentions(everyone=False),
-        file=discord.File(path),
-    )
+    if client.asset_type == mugiclient.AssetType.FILE:
+        await hook.send(
+            content=text,
+            username=ctx.interaction.user.nick or ctx.interaction.user.name,
+            avatar_url=ctx.interaction.user.display_avatar,
+            allowed_mentions=discord.AllowedMentions(everyone=False),
+            file=discord.File(path),
+        )
+    else:
+        messages = [
+            mugiclient.MugiMessage(
+                content=mugiclient.BUILD_MESSAGE[client.asset_type](commentface)
+            )
+        ]
+        if text:
+            messages.append(mugiclient.MugiMessage(content=text))
+        for mugi_message in messages:
+            await hook.send(
+                username=ctx.interaction.user.nick or ctx.interaction.user.name,
+                avatar_url=ctx.interaction.user.display_avatar,
+                allowed_mentions=discord.AllowedMentions(everyone=False),
+                **mugi_message.contents,
+            )
     await ctx.interaction.delete_original_response()
 
 
