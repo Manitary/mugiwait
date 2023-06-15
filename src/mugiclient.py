@@ -171,9 +171,9 @@ class Mugiwait(discord.Bot):
 
         try:
             commentface_message = BUILD_MESSAGE[self.asset_type](commentface)
-        except MugiError:
+        except MugiError as e:
             logger.debug("No commentface found")
-            return messages
+            raise e
 
         overlay = match_dict.get("overlay", "")
         if self.asset_type == AssetType.FILE:
