@@ -214,7 +214,9 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     if message.author == client.user:
         logger.debug("Ignoring message from self")
         return False
-    if not isinstance(message.channel, discord.TextChannel):
+    if not isinstance(message.channel, discord.TextChannel) and not isinstance(
+        message.channel, discord.Thread
+    ):
         logger.debug("Ignoring message from wrong channel type")
         return False
     if not message.content or message.content[0] not in RE_COMMENTFACE:
@@ -226,10 +228,26 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     return True
 
 
+def get_channel_and_thread(
+    context: discord.Message | discord.Interaction,
+) -> tuple[discord.TextChannel, discord.Thread | None]:
+    """Retrieve the text channel and thread, if possible."""
+    if isinstance(context.channel, discord.Thread):
+        parent_channel = context.channel.parent
+        if isinstance(parent_channel, discord.TextChannel):
+            return parent_channel, context.channel
+        logger.warning("Parent channel not a TextChannel")
+        raise MugiError()
+    channel: discord.TextChannel = (
+        context.channel
+    )  # type checked in is_valid_message / is_valid_interaction
+    return channel, None
+
+
 async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.Webhook:
     """Return the webhook with given name; create one if it does not exist."""
-    hook_reason = "mugi"
     while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
+        hook_reason = "mugi"
         with AVATAR_PATH.open("rb") as f:
             await channel.create_webhook(
                 name=hook_name, reason=hook_reason, avatar=f.read()
@@ -257,7 +275,9 @@ def is_valid_interaction(interaction: discord.Interaction) -> bool:
             "Sender of the command is not a server member: %s", interaction.user
         )
         return False
-    if not isinstance(interaction.channel, discord.TextChannel):
+    if not isinstance(interaction.channel, discord.TextChannel) and not isinstance(
+        interaction.channel, discord.Thread
+    ):
         logger.warning("Command not coming from a TextChannel: %s", interaction.channel)
         return False
     return True

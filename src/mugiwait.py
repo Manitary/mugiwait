@@ -54,6 +54,11 @@ async def autocomplete_example(
         return
     author: discord.Member = ctx.interaction.user
     channel: discord.TextChannel = ctx.interaction.channel
+    try:
+        channel, thread = mugiclient.get_channel_and_thread(ctx.interaction)
+    except mugiclient.MugiError:
+        logger.debug("Invalid channel/thread")
+        return
     username = author.nick or author.display_name
     logger.info(
         "Command detected. Commentface: %s. Additional text: %s. Sent by: %s",
@@ -91,6 +96,7 @@ async def autocomplete_example(
             username=username,
             avatar_url=author.display_avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
+            thread=thread or discord.MISSING,
         )
     await ctx.interaction.delete_original_response()
 
@@ -123,10 +129,14 @@ async def on_message(message: discord.Message) -> None:
         logger.info("Invalid message, could not build commentface")
         return
 
+    try:
+        channel, thread = mugiclient.get_channel_and_thread(message)
+    except mugiclient.MugiError:
+        logger.debug("Invalid channel/thread")
+        return
+
     logger.debug("Getting the hook...")
-    hook = await mugiclient.get_webhook(
-        channel=message.channel, hook_name=str(client.user)
-    )
+    hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
 
     logger.debug("Hook found. Deleting message...")
     await message.delete()
@@ -141,6 +151,7 @@ async def on_message(message: discord.Message) -> None:
             username=author.nick or author.display_name,
             avatar_url=message.author.display_avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
+            thread=thread or discord.MISSING,
         )
     logger.debug("Message(s) sent")
     return
