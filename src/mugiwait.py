@@ -66,7 +66,7 @@ async def autocomplete_example(
         text,
         username,
     )
-    path = mugiclient.COMMENTFACES.get(commentface, None)
+    path = mugiclient.COMMENTFACES.get(commentface.lower(), None)
     if not path:
         logger.debug("Invalid commentface: %s", commentface)
         await ctx.interaction.response.send_message(

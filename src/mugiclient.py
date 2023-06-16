@@ -88,7 +88,7 @@ class MugiMessage:
 
 async def build_imgur_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
-    url = COMMENTFACES_URL.get(commentface, None)
+    url = COMMENTFACES_URL.get(commentface.lower(), None)
     if not url:
         raise MugiError()
     logger.debug("URL found: %s", url)
@@ -97,7 +97,7 @@ async def build_imgur_message(commentface: str) -> MugiMessage:
 
 async def build_github_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Github assets."""
-    commentface_path = COMMENTFACES.get(commentface, None)
+    commentface_path = COMMENTFACES.get(commentface.lower(), None)
     if not commentface_path:
         raise MugiError()
     logger.debug("Path found: %s", commentface_path)
@@ -108,7 +108,7 @@ async def build_github_message(commentface: str) -> MugiMessage:
 
 async def build_file_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on local assets."""
-    commentface_path = COMMENTFACES.get(commentface, None)
+    commentface_path = COMMENTFACES.get(commentface.lower(), None)
     if not commentface_path:
         raise MugiError()
     logger.debug("Path found: %s", commentface_path)
