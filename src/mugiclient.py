@@ -86,7 +86,7 @@ class MugiMessage:
     file: discord.File | None = None
 
 
-def build_imgur_message(commentface: str) -> MugiMessage:
+async def build_imgur_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
     url = COMMENTFACES_URL.get(commentface, None)
     if not url:
@@ -95,7 +95,7 @@ def build_imgur_message(commentface: str) -> MugiMessage:
     return MugiMessage(content=url)
 
 
-def build_github_message(commentface: str) -> MugiMessage:
+async def build_github_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on Github assets."""
     commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
@@ -106,7 +106,7 @@ def build_github_message(commentface: str) -> MugiMessage:
     return MugiMessage(content=url)
 
 
-def build_file_message(commentface: str) -> MugiMessage:
+async def build_file_message(commentface: str) -> MugiMessage:
     """Return the contents of the message based on local assets."""
     commentface_path = COMMENTFACES.get(commentface, None)
     if not commentface_path:
@@ -154,7 +154,7 @@ class Mugiwait(discord.Bot):
     def asset_type(self, value: AssetType) -> None:
         self._asset_type = value
 
-    def build_messages_from_message(self, text: str) -> list[MugiMessage]:
+    async def build_messages_from_message(self, text: str) -> list[MugiMessage]:
         """Return a list of message contents to send and replace the processed input text."""
         messages: list[MugiMessage] = []
         prefix = text[0]
@@ -170,7 +170,7 @@ class Mugiwait(discord.Bot):
             raise MugiError()
 
         try:
-            commentface_message = BUILD_MESSAGE[self.asset_type](commentface)
+            commentface_message = await BUILD_MESSAGE[self.asset_type](commentface)
         except MugiError as e:
             logger.debug("No commentface found")
             raise e
@@ -187,7 +187,7 @@ class Mugiwait(discord.Bot):
 
         return messages
 
-    def build_messages_from_command(
+    async def build_messages_from_command(
         self, commentface: str, text: str, path: Path
     ) -> list[MugiMessage]:
         """Return a list of message contents to send in response to a valid slash command."""
@@ -195,7 +195,8 @@ class Mugiwait(discord.Bot):
             return [MugiMessage(content=text, file=discord.File(path))]
         messages: list[MugiMessage] = []
         try:
-            messages.append(BUILD_MESSAGE[self.asset_type](commentface))
+            commentface_message = await BUILD_MESSAGE[self.asset_type](commentface)
+            messages.append(commentface_message)
         except MugiError as e:
             logger.error(
                 "Invalid commentfaces should have been already excluded by this point"
@@ -228,7 +229,7 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     return True
 
 
-def get_channel_and_thread(
+async def get_channel_and_thread(
     context: discord.Message | discord.Interaction,
 ) -> tuple[discord.TextChannel, discord.Thread | None]:
     """Retrieve the text channel and thread, if possible."""

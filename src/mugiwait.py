@@ -55,7 +55,7 @@ async def autocomplete_example(
     author: discord.Member = ctx.interaction.user
     channel: discord.TextChannel = ctx.interaction.channel
     try:
-        channel, thread = mugiclient.get_channel_and_thread(ctx.interaction)
+        channel, thread = await mugiclient.get_channel_and_thread(ctx.interaction)
     except mugiclient.MugiError:
         logger.debug("Invalid channel/thread")
         return
@@ -77,7 +77,7 @@ async def autocomplete_example(
     hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     logger.debug("Sending message...")
     try:
-        messages = client.build_messages_from_command(
+        messages = await client.build_messages_from_command(
             commentface=commentface, text=text, path=path
         )
         logger.debug("Message(s) generated")
@@ -123,14 +123,14 @@ async def on_message(message: discord.Message) -> None:
     logger.info("Processing message: %s", message.content)
 
     try:
-        mugi_messages = client.build_messages_from_message(message.content)
+        mugi_messages = await client.build_messages_from_message(message.content)
         logger.debug("Message(s) generated")
     except mugiclient.MugiError:
         logger.info("Invalid message, could not build commentface")
         return
 
     try:
-        channel, thread = mugiclient.get_channel_and_thread(message)
+        channel, thread = await mugiclient.get_channel_and_thread(message)
     except mugiclient.MugiError:
         logger.debug("Invalid channel/thread")
         return
