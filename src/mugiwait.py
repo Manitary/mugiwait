@@ -59,7 +59,7 @@ async def autocomplete_example(
     except mugiclient.MugiError:
         logger.debug("Invalid channel/thread")
         return
-    username = author.nick or author.display_name
+    username = author.display_name
     logger.info(
         "Command detected. Commentface: %s. Additional text: %s. Sent by: %s",
         commentface,
@@ -148,7 +148,7 @@ async def on_message(message: discord.Message) -> None:
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
-            username=author.nick or author.display_name,
+            username=author.display_name,
             avatar_url=message.author.display_avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
