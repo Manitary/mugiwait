@@ -27,8 +27,6 @@ client = mugiclient.Mugiwait(intents=intents)
 
 @dataclass
 class ParserArguments:
-    """Arguments passed when running mugi."""
-
     log_dir: str
     debug: bool
     imgur: bool
@@ -49,7 +47,13 @@ class ParserArguments:
 async def autocomplete_example(
     ctx: discord.ApplicationContext, commentface: str, text: str = ""
 ) -> None:
-    """Send a commentface."""
+    """Slash command to send a commentface.
+
+    Usage: ``/mugi commentface text``
+
+    The commentface field supports autocompletion.
+    The text field is optional.
+    """
     try:
         messages = await client.build_messages_from_command(
             commentface=commentface, text=text
@@ -114,7 +118,10 @@ async def on_ready() -> None:
 
 @client.event
 async def on_message(message: discord.Message) -> None:
-    """React to new messages."""
+    """React to new messages.
+
+    If the message is valid and can be translated into a commentface message,
+    it is deleted and mugi sends the corresponding message via webhook."""
     if not mugiclient.is_valid_message(message=message, client=client):
         return
     logger.info("Processing message: %s", message.content)
@@ -186,7 +193,6 @@ def main() -> None:
 
 
 def create_parser() -> argparse.ArgumentParser:
-    """Return the parser used by the command."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dev", action="store_true", default=False, help="run in developer mode"

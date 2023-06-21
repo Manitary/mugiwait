@@ -88,10 +88,10 @@ COMMENTFACES = get_commentfaces_paths()
 
 @dataclass
 class MugiMessage:
-    """Contents of the message to be sent.
+    """Contents of the message to send.
 
     content: text of the message
-    file: file path (Path or str) of the file to send"""
+    file: discord file object, defined via file path"""
 
     content: str = ""
     file: discord.File | None = None
@@ -225,7 +225,7 @@ class Mugiwait(discord.Bot):
 async def get_channel_and_thread(
     channel: ValidChannel,
 ) -> tuple[ValidChannel, discord.Thread | None,]:
-    """Retrieve the text channel and thread, if possible."""
+    """Return the text channel and thread."""
     try:  # Thread
         parent_channel = channel.parent
         return parent_channel, channel
@@ -237,7 +237,9 @@ async def get_webhook(
     channel: ValidChannel,
     hook_name: str,
 ) -> discord.Webhook:
-    """Return the webhook with given name; create one if it does not exist."""
+    """Return the channel webhook with given name; create one if it does not exist.
+
+    Raise MugiError if the channel does not support webhooks."""
     try:
         while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
             hook_reason = "mugi"
@@ -245,7 +247,7 @@ async def get_webhook(
                 await channel.create_webhook(
                     name=hook_name, reason=hook_reason, avatar=f.read()
                 )
-    except AttributeError as e:  # The channel does not support webhooks
+    except AttributeError as e:
         raise MugiError from e
 
     return hook
