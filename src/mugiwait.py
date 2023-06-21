@@ -12,7 +12,7 @@ import discord
 from dotenv import load_dotenv
 
 import mugiclient
-from mugiclient import MugiError, ValidChannel
+from mugiclient import MugiError
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -50,9 +50,6 @@ async def autocomplete_example(
     ctx: discord.ApplicationContext, commentface: str, text: str = ""
 ) -> None:
     """Send a commentface."""
-    if not mugiclient.is_valid_interaction(ctx.interaction):
-        logger.debug("Invalid interaction.")
-        return
     try:
         messages = await client.build_messages_from_command(
             commentface=commentface, text=text
@@ -65,22 +62,29 @@ async def autocomplete_example(
             ephemeral=True,
         )
         return
-    author: discord.Member = ctx.interaction.user
-    channel: ValidChannel = ctx.interaction.channel
-    try:
-        channel, thread = await mugiclient.get_channel_and_thread(channel)
-    except MugiError:
-        logger.debug("Invalid channel/thread")
+    if not ctx.interaction.user:
+        logger.warning("Interaction user not found")
         return
-    username = author.display_name
+    username = ctx.interaction.user.display_name
+    avatar = ctx.interaction.user.display_avatar
     logger.info(
         "Command detected. Commentface: %s. Additional text: %s. Sent by: %s",
         commentface,
         text,
         username,
     )
-    logger.debug("Getting the hook...")
-    hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
+    if not ctx.interaction.channel:
+        logger.warning("Interaction channel not found")
+        return
+    try:
+        logger.debug("Getting the hook...")
+        channel, thread = await mugiclient.get_channel_and_thread(
+            channel=ctx.interaction.channel
+        )
+        hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
+    except MugiError:
+        logger.info("Invalid channel/thread")
+        return
     logger.debug("Sending message...")
     await ctx.interaction.response.defer()
     for mugi_message in messages:
@@ -89,7 +93,7 @@ async def autocomplete_example(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
             username=username,
-            avatar_url=author.display_avatar,
+            avatar_url=avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
         )

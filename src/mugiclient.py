@@ -275,16 +275,3 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
         logger.debug("The message does not have a guild (?)")
         return False
     return True
-
-
-def is_valid_interaction(interaction: discord.Interaction) -> bool:
-    """Return False if the slash command interaction is malformed."""
-    if not interaction.user:
-        logger.warning("Sender of the command not found")
-        return False
-    if not isinstance(interaction.user, discord.Member):
-        logger.warning(
-            "Sender of the command is not a server member: %s", interaction.user
-        )
-        return False
-    return True
