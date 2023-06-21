@@ -127,13 +127,13 @@ async def on_message(message: discord.Message) -> None:
         return
 
     try:
+        logger.debug("Getting the hook...")
         channel, thread = await mugiclient.get_channel_and_thread(message.channel)
+        hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     except MugiError:
         logger.debug("Invalid channel/thread")
         return
 
-    logger.debug("Getting the hook...")
-    hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
 
     logger.debug("Hook found. Deleting message...")
     await message.delete()
