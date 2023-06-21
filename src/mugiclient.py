@@ -271,7 +271,4 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     if not message.content or message.content[0] not in RE_COMMENTFACE:
         logger.debug("Ignoring message without the right prefix")
         return False
-    if not message.guild:
-        logger.debug("The message does not have a guild (?)")
-        return False
     return True

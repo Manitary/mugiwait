@@ -139,13 +139,12 @@ async def on_message(message: discord.Message) -> None:
     await message.delete()
 
     logger.debug("Message deleted. Sending message(s)...")
-    author = await message.guild.fetch_member(message.author.id)
     for mugi_message in mugi_messages:
         logger.debug("Sending message: %s", mugi_message)
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
-            username=author.display_name,
+            username=message.author.display_name,
             avatar_url=message.author.display_avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
