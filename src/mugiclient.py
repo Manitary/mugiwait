@@ -183,7 +183,7 @@ class Mugiwait(discord.Bot):
         try:
             commentface_message = await BUILD_MESSAGE[self.asset_type](commentface)
         except MugiError as e:
-            logger.debug("No commentface found")
+            logger.info("Invalid commentface: %s", commentface)
             raise e
 
         overlay = match_dict.get("overlay", "")
@@ -204,7 +204,7 @@ class Mugiwait(discord.Bot):
         """Return a list of message contents to send in response to a valid slash command."""
         path = COMMENTFACES.get(commentface.lower(), None)
         if not path:
-            logger.debug("Invalid commentface: %s", commentface)
+            logger.info("Invalid commentface: %s", commentface)
             raise MugiError()
         if self.asset_type == AssetType.FILE:
             return [MugiMessage(content=text, file=discord.File(path))]
@@ -254,7 +254,7 @@ async def get_webhook(
 
 
 async def get_commentfaces_suggestions(ctx: discord.AutocompleteContext) -> list[str]:
-    """Returns a list of commentfaces that begin with the characters entered so far."""
+    """Returns a list of commentfaces that start with the characters entered so far."""
     return [
         commentface
         for commentface in COMMENTFACES

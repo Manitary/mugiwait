@@ -54,34 +54,32 @@ async def autocomplete_example(
     The commentface field supports autocompletion.
     The text field is optional.
     """
-    try:
-        messages = await client.build_messages_from_command(
-            commentface=commentface, text=text
-        )
-        logger.debug("Message(s) generated")
-    except MugiError:
-        logger.error("Could not build messages")
-        await ctx.interaction.response.send_message(
-            f"An unexpected error occurred. Perhaps commentface {commentface} does not exist?",
-            ephemeral=True,
-        )
-        return
     if not ctx.interaction.user:
         logger.warning("Interaction user not found")
         return
     username = ctx.interaction.user.display_name
     avatar = ctx.interaction.user.display_avatar
     logger.info(
-        "Command detected. Commentface: %s. Additional text: %s. Sent by: %s",
+        "Command detected: author = %s, commentface = %s, additional text = %s",
+        username,
         commentface,
         text,
-        username,
     )
+    try:
+        messages = await client.build_messages_from_command(
+            commentface=commentface, text=text
+        )
+    except MugiError:
+        logger.info("Could not build messages")
+        await ctx.interaction.response.send_message(
+            f"An unexpected error occurred. Perhaps commentface {commentface} does not exist?",
+            ephemeral=True,
+        )
+        return
     if not ctx.interaction.channel:
         logger.warning("Interaction channel not found")
         return
     try:
-        logger.debug("Getting the hook...")
         channel, thread = await mugiclient.get_channel_and_thread(
             channel=ctx.interaction.channel
         )
@@ -89,10 +87,20 @@ async def autocomplete_example(
     except MugiError:
         logger.info("Invalid channel/thread")
         return
-    logger.debug("Sending message...")
     await ctx.interaction.response.defer()
     for mugi_message in messages:
-        logger.debug("Sending message: %s", mugi_message)
+        logger.info(
+            (
+                "Sending message: "
+                "username = %s, avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+            ),
+            username,
+            avatar,
+            mugi_message.content,
+            mugi_message.file.fp if mugi_message.file else None,
+            channel,
+            thread,
+        )
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
@@ -124,45 +132,52 @@ async def on_message(message: discord.Message) -> None:
     it is deleted and mugi sends the corresponding message via webhook."""
     if not mugiclient.is_valid_message(message=message, client=client):
         return
-    logger.info("Processing message: %s", message.content)
+    username = message.author.display_name
+    avatar = message.author.display_avatar
+    logger.info("Processing message: %s. Author: %s", message.content, username)
 
     try:
         mugi_messages = await client.build_messages_from_message(message.content)
-        logger.debug("Message(s) generated")
     except MugiError:
         logger.info("Invalid message, could not build commentface")
         return
 
     try:
-        logger.debug("Getting the hook...")
         channel, thread = await mugiclient.get_channel_and_thread(message.channel)
         hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     except MugiError:
-        logger.debug("Invalid channel/thread")
+        logger.info("Invalid channel/thread")
         return
 
-    logger.debug("Hook found. Deleting message...")
-    await message.delete()
-
-    logger.debug("Message deleted. Sending message(s)...")
     for mugi_message in mugi_messages:
-        logger.debug("Sending message: %s", mugi_message)
+        logger.info(
+            (
+                "Sending message: "
+                "username = %s, avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+            ),
+            username,
+            avatar,
+            mugi_message.content,
+            mugi_message.file.fp if mugi_message.file else None,
+            channel,
+            thread,
+        )
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
-            username=message.author.display_name,
-            avatar_url=message.author.display_avatar,
+            username=username,
+            avatar_url=avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
         )
-    logger.debug("Message(s) sent")
+    await message.delete()
     return
 
 
 def run(args: Type[ParserArguments]) -> None:
     token = os.getenv("TOKEN_DEV") if args.dev else os.getenv("TOKEN")
     if not token:
-        logger.error("Token not found; cannot log in")
+        logger.info("Token not found; cannot log in")
         print("Token not found; cannot log in")
         return
     if args.imgur:
