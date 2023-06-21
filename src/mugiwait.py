@@ -134,7 +134,6 @@ async def on_message(message: discord.Message) -> None:
         logger.debug("Invalid channel/thread")
         return
 
-
     logger.debug("Hook found. Deleting message...")
     await message.delete()
 
@@ -153,11 +152,11 @@ async def on_message(message: discord.Message) -> None:
     return
 
 
-def main(args: Type[ParserArguments]) -> None:
-    """The main loop."""
+def run(args: Type[ParserArguments]) -> None:
     token = os.getenv("TOKEN_DEV") if args.dev else os.getenv("TOKEN")
     if not token:
-        logger.error("Discord token not found. Cannot login.")
+        logger.error("Token not found; cannot log in")
+        print("Token not found; cannot log in")
         return
     if args.imgur:
         logger.info("Using Imgur URLs")
@@ -166,6 +165,24 @@ def main(args: Type[ParserArguments]) -> None:
         logger.info("Using Github URLs")
         client.asset_type = mugiclient.AssetType.GITHUB
     client.run(token)
+
+
+def main() -> None:
+    args = create_parser().parse_args(namespace=ParserArguments)
+    os.makedirs(args.log_dir, exist_ok=True)
+    log_file = f"{args.log_dir}/mugiwait.log"
+    logging.basicConfig(
+        handlers=[
+            TimedRotatingFileHandler(
+                filename=log_file, when="midnight", backupCount=7, encoding="UTF-8"
+            )
+        ],
+        format="%(asctime)s | %(module)s | %(levelname)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG if args.debug else logging.INFO,
+    )
+    logging.getLogger("discord").setLevel(logging.WARNING)
+    run(args=args)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -204,18 +221,4 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    args = create_parser().parse_args(namespace=ParserArguments)
-    os.makedirs(args.log_dir, exist_ok=True)
-    log_file = f"{args.log_dir}/mugiwait.log"
-    logging.basicConfig(
-        handlers=[
-            TimedRotatingFileHandler(
-                filename=log_file, when="midnight", backupCount=7, encoding="UTF-8"
-            )
-        ],
-        format="%(asctime)s | %(module)s | %(levelname)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG if args.debug else logging.INFO,
-    )
-    logging.getLogger("discord").setLevel(logging.WARNING)
-    main(args=args)
+    main()
