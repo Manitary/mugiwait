@@ -53,6 +53,18 @@ async def autocomplete_example(
     if not mugiclient.is_valid_interaction(ctx.interaction):
         logger.debug("Invalid interaction.")
         return
+    try:
+        messages = await client.build_messages_from_command(
+            commentface=commentface, text=text
+        )
+        logger.debug("Message(s) generated")
+    except MugiError:
+        logger.error("Could not build messages")
+        await ctx.interaction.response.send_message(
+            f"An unexpected error occurred. Perhaps commentface {commentface} does not exist?",
+            ephemeral=True,
+        )
+        return
     author: discord.Member = ctx.interaction.user
     channel: ValidChannel = ctx.interaction.channel
     try:
@@ -67,27 +79,9 @@ async def autocomplete_example(
         text,
         username,
     )
-    path = mugiclient.COMMENTFACES.get(commentface.lower(), None)
-    if not path:
-        logger.debug("Invalid commentface: %s", commentface)
-        await ctx.interaction.response.send_message(
-            f"Commentface {commentface} not found", ephemeral=True
-        )
-        return
     logger.debug("Getting the hook...")
     hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     logger.debug("Sending message...")
-    try:
-        messages = await client.build_messages_from_command(
-            commentface=commentface, text=text, path=path
-        )
-        logger.debug("Message(s) generated")
-    except MugiError:
-        logger.error("Could not build messages")
-        await ctx.interaction.response.send_message(
-            "An unexpected error occurred.", ephemeral=True
-        )
-        return
     await ctx.interaction.response.defer()
     for mugi_message in messages:
         logger.debug("Sending message: %s", mugi_message)

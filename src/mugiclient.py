@@ -199,9 +199,13 @@ class Mugiwait(discord.Bot):
         return messages
 
     async def build_messages_from_command(
-        self, commentface: str, text: str, path: Path
+        self, commentface: str, text: str
     ) -> list[MugiMessage]:
         """Return a list of message contents to send in response to a valid slash command."""
+        path = COMMENTFACES.get(commentface.lower(), None)
+        if not path:
+            logger.debug("Invalid commentface: %s", commentface)
+            raise MugiError()
         if self.asset_type == AssetType.FILE:
             return [MugiMessage(content=text, file=discord.File(path))]
         messages: list[MugiMessage] = []
