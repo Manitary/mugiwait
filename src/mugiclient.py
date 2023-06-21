@@ -54,7 +54,7 @@ class AssetType(Enum):
     FILE = auto()
 
 
-def get_seasonal_faces() -> dict[str, Path]:
+def get_seasonal_commentfaces_paths() -> dict[str, Path]:
     """Return a dict commentface -> file path for seasonal commentfaces.
 
     Only use the most recent set of seasonal commentfaces."""
@@ -66,7 +66,7 @@ def get_seasonal_faces() -> dict[str, Path]:
     raise MugiError()
 
 
-def get_comment_faces() -> dict[str, Path]:
+def get_commentfaces_paths() -> dict[str, Path]:
     """Return a dict commentface -> file path."""
     faces = {
         path.stem.lower(): path
@@ -79,19 +79,19 @@ def get_comment_faces() -> dict[str, Path]:
             ),
         )
     }
-    faces |= get_seasonal_faces()
+    faces |= get_seasonal_commentfaces_paths()
     return faces
 
 
-COMMENTFACES = get_comment_faces()
+COMMENTFACES = get_commentfaces_paths()
 
 
 @dataclass
 class MugiMessage:
-    """Contents of the message to be sent.
+    """Contents of the message to send.
 
     content: text of the message
-    file: file path (Path or str) of the file to send"""
+    file: discord file object, defined via file path"""
 
     content: str = ""
     file: discord.File | None = None
@@ -183,7 +183,7 @@ class Mugiwait(discord.Bot):
         try:
             commentface_message = await BUILD_MESSAGE[self.asset_type](commentface)
         except MugiError as e:
-            logger.debug("No commentface found")
+            logger.info("Invalid commentface: %s", commentface)
             raise e
 
         overlay = match_dict.get("overlay", "")
@@ -199,9 +199,13 @@ class Mugiwait(discord.Bot):
         return messages
 
     async def build_messages_from_command(
-        self, commentface: str, text: str, path: Path
+        self, commentface: str, text: str
     ) -> list[MugiMessage]:
         """Return a list of message contents to send in response to a valid slash command."""
+        path = COMMENTFACES.get(commentface.lower(), None)
+        if not path:
+            logger.info("Invalid commentface: %s", commentface)
+            raise MugiError()
         if self.asset_type == AssetType.FILE:
             return [MugiMessage(content=text, file=discord.File(path))]
         messages: list[MugiMessage] = []
@@ -221,7 +225,7 @@ class Mugiwait(discord.Bot):
 async def get_channel_and_thread(
     channel: ValidChannel,
 ) -> tuple[ValidChannel, discord.Thread | None,]:
-    """Retrieve the text channel and thread, if possible."""
+    """Return the text channel and thread."""
     try:  # Thread
         parent_channel = channel.parent
         return parent_channel, channel
@@ -233,7 +237,9 @@ async def get_webhook(
     channel: ValidChannel,
     hook_name: str,
 ) -> discord.Webhook:
-    """Return the webhook with given name; create one if it does not exist."""
+    """Return the channel webhook with given name; create one if it does not exist.
+
+    Raise MugiError if the channel does not support webhooks."""
     try:
         while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
             hook_reason = "mugi"
@@ -241,14 +247,14 @@ async def get_webhook(
                 await channel.create_webhook(
                     name=hook_name, reason=hook_reason, avatar=f.read()
                 )
-    except AttributeError as e:  # The channel does not support webhooks
+    except AttributeError as e:
         raise MugiError from e
 
     return hook
 
 
-async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
-    """Returns a list of commentfaces that begin with the characters entered so far."""
+async def get_commentfaces_suggestions(ctx: discord.AutocompleteContext) -> list[str]:
+    """Returns a list of commentfaces that start with the characters entered so far."""
     return [
         commentface
         for commentface in COMMENTFACES
@@ -266,21 +272,5 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
         return False
     if not message.content or message.content[0] not in RE_COMMENTFACE:
         logger.debug("Ignoring message without the right prefix")
-        return False
-    if not message.guild:
-        logger.debug("The message does not have a guild (?)")
-        return False
-    return True
-
-
-def is_valid_interaction(interaction: discord.Interaction) -> bool:
-    """Return False if the slash command interaction is malformed."""
-    if not interaction.user:
-        logger.warning("Sender of the command not found")
-        return False
-    if not isinstance(interaction.user, discord.Member):
-        logger.warning(
-            "Sender of the command is not a server member: %s", interaction.user
-        )
         return False
     return True

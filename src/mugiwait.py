@@ -12,7 +12,7 @@ import discord
 from dotenv import load_dotenv
 
 import mugiclient
-from mugiclient import MugiError, ValidChannel
+from mugiclient import MugiError
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -27,8 +27,6 @@ client = mugiclient.Mugiwait(intents=intents)
 
 @dataclass
 class ParserArguments:
-    """Arguments passed when running mugi."""
-
     log_dir: str
     debug: bool
     imgur: bool
@@ -40,7 +38,7 @@ class ParserArguments:
 @discord.commands.option(  # type: ignore
     "commentface",
     description="Pick a commentface",
-    autocomplete=mugiclient.get_commentfaces,
+    autocomplete=mugiclient.get_commentfaces_suggestions,
 )
 @discord.commands.option(  # type: ignore
     "text",
@@ -49,53 +47,65 @@ class ParserArguments:
 async def autocomplete_example(
     ctx: discord.ApplicationContext, commentface: str, text: str = ""
 ) -> None:
-    """Send a commentface."""
-    if not mugiclient.is_valid_interaction(ctx.interaction):
-        logger.debug("Invalid interaction.")
+    """Slash command to send a commentface.
+
+    Usage: ``/mugi commentface text``
+
+    The commentface field supports autocompletion.
+    The text field is optional.
+    """
+    if not ctx.interaction.user:
+        logger.warning("Interaction user not found")
         return
-    author: discord.Member = ctx.interaction.user
-    channel: ValidChannel = ctx.interaction.channel
-    try:
-        channel, thread = await mugiclient.get_channel_and_thread(channel)
-    except MugiError:
-        logger.debug("Invalid channel/thread")
-        return
-    username = author.display_name
+    username = ctx.interaction.user.display_name
+    avatar = ctx.interaction.user.display_avatar
     logger.info(
-        "Command detected. Commentface: %s. Additional text: %s. Sent by: %s",
+        "Command detected: author = %s, commentface = %s, additional text = %s",
+        username,
         commentface,
         text,
-        username,
     )
-    path = mugiclient.COMMENTFACES.get(commentface.lower(), None)
-    if not path:
-        logger.debug("Invalid commentface: %s", commentface)
-        await ctx.interaction.response.send_message(
-            f"Commentface {commentface} not found", ephemeral=True
-        )
-        return
-    logger.debug("Getting the hook...")
-    hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
-    logger.debug("Sending message...")
     try:
         messages = await client.build_messages_from_command(
-            commentface=commentface, text=text, path=path
+            commentface=commentface, text=text
         )
-        logger.debug("Message(s) generated")
     except MugiError:
-        logger.error("Could not build messages")
+        logger.info("Could not build messages")
         await ctx.interaction.response.send_message(
-            "An unexpected error occurred.", ephemeral=True
+            f"An unexpected error occurred. Perhaps commentface {commentface} does not exist?",
+            ephemeral=True,
         )
+        return
+    if not ctx.interaction.channel:
+        logger.warning("Interaction channel not found")
+        return
+    try:
+        channel, thread = await mugiclient.get_channel_and_thread(
+            channel=ctx.interaction.channel
+        )
+        hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
+    except MugiError:
+        logger.info("Invalid channel/thread")
         return
     await ctx.interaction.response.defer()
     for mugi_message in messages:
-        logger.debug("Sending message: %s", mugi_message)
+        logger.info(
+            (
+                "Sending message: "
+                "username = %s, avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+            ),
+            username,
+            avatar,
+            mugi_message.content,
+            mugi_message.file.fp if mugi_message.file else None,
+            channel,
+            thread,
+        )
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
             username=username,
-            avatar_url=author.display_avatar,
+            avatar_url=avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
         )
@@ -105,64 +115,70 @@ async def autocomplete_example(
 @client.event
 async def on_ready() -> None:
     """Change status when going online."""
-    logger.debug("Logging in...")
     await client.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching, name="mugi waiting"
         )
     )
-    logger.info("Activity changed to %s", client.activity)
     logger.info("Logged in as %s", client.user)
     print(f"Logged in as {client.user}")
 
 
 @client.event
 async def on_message(message: discord.Message) -> None:
-    """React to new messages."""
+    """React to new messages.
+
+    If the message is valid and can be translated into a commentface message,
+    it is deleted and mugi sends the corresponding message via webhook."""
     if not mugiclient.is_valid_message(message=message, client=client):
         return
-    logger.info("Processing message: %s", message.content)
+    username = message.author.display_name
+    avatar = message.author.display_avatar
+    logger.info("Processing message: %s. Author: %s", message.content, username)
 
     try:
         mugi_messages = await client.build_messages_from_message(message.content)
-        logger.debug("Message(s) generated")
     except MugiError:
         logger.info("Invalid message, could not build commentface")
         return
 
     try:
         channel, thread = await mugiclient.get_channel_and_thread(message.channel)
+        hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     except MugiError:
-        logger.debug("Invalid channel/thread")
+        logger.info("Invalid channel/thread")
         return
 
-    logger.debug("Getting the hook...")
-    hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
-
-    logger.debug("Hook found. Deleting message...")
-    await message.delete()
-
-    logger.debug("Message deleted. Sending message(s)...")
-    author = await message.guild.fetch_member(message.author.id)
     for mugi_message in mugi_messages:
-        logger.debug("Sending message: %s", mugi_message)
+        logger.info(
+            (
+                "Sending message: "
+                "username = %s, avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+            ),
+            username,
+            avatar,
+            mugi_message.content,
+            mugi_message.file.fp if mugi_message.file else None,
+            channel,
+            thread,
+        )
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
-            username=author.display_name,
-            avatar_url=message.author.display_avatar,
+            username=username,
+            avatar_url=avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
         )
-    logger.debug("Message(s) sent")
+    await message.delete()
     return
 
 
-def main(args: Type[ParserArguments]) -> None:
-    """The main loop."""
+def run(args: Type[ParserArguments]) -> None:
     token = os.getenv("TOKEN_DEV") if args.dev else os.getenv("TOKEN")
     if not token:
-        logger.error("Discord token not found. Cannot login.")
+        logger.info("Token not found; cannot log in")
+        print("Token not found; cannot log in")
         return
     if args.imgur:
         logger.info("Using Imgur URLs")
@@ -173,8 +189,25 @@ def main(args: Type[ParserArguments]) -> None:
     client.run(token)
 
 
+def main() -> None:
+    args = create_parser().parse_args(namespace=ParserArguments)
+    os.makedirs(args.log_dir, exist_ok=True)
+    log_file = f"{args.log_dir}/mugiwait.log"
+    logging.basicConfig(
+        handlers=[
+            TimedRotatingFileHandler(
+                filename=log_file, when="midnight", backupCount=7, encoding="UTF-8"
+            )
+        ],
+        format="%(asctime)s | %(module)s | %(levelname)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG if args.debug else logging.INFO,
+    )
+    logging.getLogger("discord").setLevel(logging.WARNING)
+    run(args=args)
+
+
 def create_parser() -> argparse.ArgumentParser:
-    """Return the parser used by the command."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--dev", action="store_true", default=False, help="run in developer mode"
@@ -209,18 +242,4 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    args = create_parser().parse_args(namespace=ParserArguments)
-    os.makedirs(args.log_dir, exist_ok=True)
-    log_file = f"{args.log_dir}/mugiwait.log"
-    logging.basicConfig(
-        handlers=[
-            TimedRotatingFileHandler(
-                filename=log_file, when="midnight", backupCount=7, encoding="UTF-8"
-            )
-        ],
-        format="%(asctime)s | %(module)s | %(levelname)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG if args.debug else logging.INFO,
-    )
-    logging.getLogger("discord").setLevel(logging.WARNING)
-    main(args=args)
+    main()
