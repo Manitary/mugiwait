@@ -103,13 +103,11 @@ async def autocomplete_example(
 @client.event
 async def on_ready() -> None:
     """Change status when going online."""
-    logger.debug("Logging in...")
     await client.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching, name="mugi waiting"
         )
     )
-    logger.info("Activity changed to %s", client.activity)
     logger.info("Logged in as %s", client.user)
     print(f"Logged in as {client.user}")
 
