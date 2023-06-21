@@ -11,6 +11,17 @@ from discord.utils import get as get_hook
 
 from resources.commentfaces import COMMENTFACES_URL
 
+ValidChannel = (
+    discord.VoiceChannel
+    | discord.StageChannel
+    | discord.TextChannel
+    | discord.ForumChannel
+    | discord.CategoryChannel
+    | discord.Thread
+    | discord.PartialMessageable
+    | discord.abc.Messageable
+)
+
 logger = logging.getLogger(__name__)
 
 RE_COMMENTFACE = {
@@ -207,52 +218,31 @@ class Mugiwait(discord.Bot):
         return messages
 
 
-def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
-    """Return whether mugi will further analyse the message contents."""
-    if message.webhook_id:
-        logger.debug("Ignoring webhook message")
-        return False
-    if message.author == client.user:
-        logger.debug("Ignoring message from self")
-        return False
-    if not isinstance(message.channel, discord.TextChannel) and not isinstance(
-        message.channel, discord.Thread
-    ):
-        logger.debug("Ignoring message from wrong channel type")
-        return False
-    if not message.content or message.content[0] not in RE_COMMENTFACE:
-        logger.debug("Ignoring message without the right prefix")
-        return False
-    if not message.guild:
-        logger.debug("The message does not have a guild (?)")
-        return False
-    return True
-
-
 async def get_channel_and_thread(
-    context: discord.Message | discord.Interaction,
-) -> tuple[discord.TextChannel, discord.Thread | None]:
+    channel: ValidChannel,
+) -> tuple[ValidChannel, discord.Thread | None,]:
     """Retrieve the text channel and thread, if possible."""
-    if isinstance(context.channel, discord.Thread):
-        parent_channel = context.channel.parent
-        if isinstance(parent_channel, discord.TextChannel):
-            return parent_channel, context.channel
-        logger.warning("Parent channel not a TextChannel")
-        raise MugiError()
-    channel: discord.TextChannel = (
-        context.channel
-    )  # type checked in is_valid_message / is_valid_interaction
-    return channel, None
+    try:  # Thread
+        parent_channel = channel.parent
+        return parent_channel, channel
+    except AttributeError:  # Not thread
+        return channel, None
 
 
-async def get_webhook(channel: discord.TextChannel, hook_name: str) -> discord.Webhook:
+async def get_webhook(
+    channel: ValidChannel,
+    hook_name: str,
+) -> discord.Webhook:
     """Return the webhook with given name; create one if it does not exist."""
-    while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
-        hook_reason = "mugi"
-        with AVATAR_PATH.open("rb") as f:
-            await channel.create_webhook(
-                name=hook_name, reason=hook_reason, avatar=f.read()
-            )
+    try:
+        while not (hook := get_hook(await channel.webhooks(), name=hook_name)):
+            hook_reason = "mugi"
+            with AVATAR_PATH.open("rb") as f:
+                await channel.create_webhook(
+                    name=hook_name, reason=hook_reason, avatar=f.read()
+                )
+    except AttributeError as e:  # The channel does not support webhooks
+        raise MugiError from e
 
     return hook
 
@@ -266,6 +256,23 @@ async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
     ]
 
 
+def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
+    """Return whether mugi will further analyse the message contents."""
+    if message.webhook_id:
+        logger.debug("Ignoring webhook message")
+        return False
+    if message.author == client.user:
+        logger.debug("Ignoring message from self")
+        return False
+    if not message.content or message.content[0] not in RE_COMMENTFACE:
+        logger.debug("Ignoring message without the right prefix")
+        return False
+    if not message.guild:
+        logger.debug("The message does not have a guild (?)")
+        return False
+    return True
+
+
 def is_valid_interaction(interaction: discord.Interaction) -> bool:
     """Return False if the slash command interaction is malformed."""
     if not interaction.user:
@@ -275,10 +282,5 @@ def is_valid_interaction(interaction: discord.Interaction) -> bool:
         logger.warning(
             "Sender of the command is not a server member: %s", interaction.user
         )
-        return False
-    if not isinstance(interaction.channel, discord.TextChannel) and not isinstance(
-        interaction.channel, discord.Thread
-    ):
-        logger.warning("Command not coming from a TextChannel: %s", interaction.channel)
         return False
     return True

@@ -12,6 +12,7 @@ import discord
 from dotenv import load_dotenv
 
 import mugiclient
+from mugiclient import MugiError, ValidChannel
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -35,13 +36,13 @@ class ParserArguments:
     dev: bool
 
 
-@client.slash_command(name="mugi")
-@discord.commands.option(
+@client.slash_command(name="mugi")  # type: ignore
+@discord.commands.option(  # type: ignore
     "commentface",
     description="Pick a commentface",
     autocomplete=mugiclient.get_commentfaces,
 )
-@discord.commands.option(
+@discord.commands.option(  # type: ignore
     "text",
     description="Additional text",
 )
@@ -53,10 +54,10 @@ async def autocomplete_example(
         logger.debug("Invalid interaction.")
         return
     author: discord.Member = ctx.interaction.user
-    channel: discord.TextChannel = ctx.interaction.channel
+    channel: ValidChannel = ctx.interaction.channel
     try:
-        channel, thread = await mugiclient.get_channel_and_thread(ctx.interaction)
-    except mugiclient.MugiError:
+        channel, thread = await mugiclient.get_channel_and_thread(channel)
+    except MugiError:
         logger.debug("Invalid channel/thread")
         return
     username = author.display_name
@@ -81,7 +82,7 @@ async def autocomplete_example(
             commentface=commentface, text=text, path=path
         )
         logger.debug("Message(s) generated")
-    except mugiclient.MugiError:
+    except MugiError:
         logger.error("Could not build messages")
         await ctx.interaction.response.send_message(
             "An unexpected error occurred.", ephemeral=True
@@ -125,13 +126,13 @@ async def on_message(message: discord.Message) -> None:
     try:
         mugi_messages = await client.build_messages_from_message(message.content)
         logger.debug("Message(s) generated")
-    except mugiclient.MugiError:
+    except MugiError:
         logger.info("Invalid message, could not build commentface")
         return
 
     try:
-        channel, thread = await mugiclient.get_channel_and_thread(message)
-    except mugiclient.MugiError:
+        channel, thread = await mugiclient.get_channel_and_thread(message.channel)
+    except MugiError:
         logger.debug("Invalid channel/thread")
         return
 
