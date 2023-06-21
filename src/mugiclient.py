@@ -54,7 +54,7 @@ class AssetType(Enum):
     FILE = auto()
 
 
-def get_seasonal_faces() -> dict[str, Path]:
+def get_seasonal_commentfaces_paths() -> dict[str, Path]:
     """Return a dict commentface -> file path for seasonal commentfaces.
 
     Only use the most recent set of seasonal commentfaces."""
@@ -66,7 +66,7 @@ def get_seasonal_faces() -> dict[str, Path]:
     raise MugiError()
 
 
-def get_comment_faces() -> dict[str, Path]:
+def get_commentfaces_paths() -> dict[str, Path]:
     """Return a dict commentface -> file path."""
     faces = {
         path.stem.lower(): path
@@ -79,11 +79,11 @@ def get_comment_faces() -> dict[str, Path]:
             ),
         )
     }
-    faces |= get_seasonal_faces()
+    faces |= get_seasonal_commentfaces_paths()
     return faces
 
 
-COMMENTFACES = get_comment_faces()
+COMMENTFACES = get_commentfaces_paths()
 
 
 @dataclass
@@ -251,7 +251,7 @@ async def get_webhook(
     return hook
 
 
-async def get_commentfaces(ctx: discord.AutocompleteContext) -> list[str]:
+async def get_commentfaces_suggestions(ctx: discord.AutocompleteContext) -> list[str]:
     """Returns a list of commentfaces that begin with the characters entered so far."""
     return [
         commentface

@@ -40,7 +40,7 @@ class ParserArguments:
 @discord.commands.option(  # type: ignore
     "commentface",
     description="Pick a commentface",
-    autocomplete=mugiclient.get_commentfaces,
+    autocomplete=mugiclient.get_commentfaces_suggestions,
 )
 @discord.commands.option(  # type: ignore
     "text",
