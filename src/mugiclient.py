@@ -26,10 +26,11 @@ logger = logging.getLogger(__name__)
 
 RE_COMMENTFACE = {
     # #commentface hovertext
-    "#": re.compile(r"#(?P<commentface>[^\s]+)\s?(?P<hovertext>.*)"),
+    "#": re.compile(r"#(?P<commentface>[^\s]+)\s?(?P<hovertext>.*)", flags=re.DOTALL),
     # [overlay](#commentface "hovertext")
     "[": re.compile(
-        r"\[(?P<overlay>.*)\]\(#(?P<commentface>[^\s]+)\s?\"?(?P<hovertext>[^\"]*)\"?\)"
+        r"\[(?P<overlay>.*)\]\(#(?P<commentface>[^\s]+)\s?\"?(?P<hovertext>[^\"]*)\"?\)",
+        flags=re.DOTALL,
     ),
 }
 AVATAR_PATH = Path("src/resources/mugiwait_avatar.png")
