@@ -166,8 +166,18 @@ class Mugiwait(discord.Bot):
     def asset_type(self, value: AssetType) -> None:
         self._asset_type = value
 
-    async def build_messages_from_message(self, text: str) -> list[MugiMessage]:
+    async def get_reference_contents(
+        self, reply: discord.MessageReference | None = None
+    ) -> str:
+        if not reply:
+            return ""
+        return reply.jump_url
+
+    async def build_messages_from_message(
+        self, text: str, reply: discord.MessageReference | None = None
+    ) -> list[MugiMessage]:
         """Return a list of message contents to send and replace the processed input text."""
+        reference = await self.get_reference_contents(reply) if reply else ""
         messages: list[MugiMessage] = []
         prefix = text[0]
         match = RE_COMMENTFACE[prefix].match(text)
@@ -188,6 +198,8 @@ class Mugiwait(discord.Bot):
             raise e
 
         overlay = match_dict.get("overlay", "")
+        if reply:
+            overlay = f"> {reference}\n{overlay}"
         if self.asset_type == AssetType.FILE:
             commentface_message.content = overlay
         elif overlay:
