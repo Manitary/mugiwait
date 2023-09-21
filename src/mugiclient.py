@@ -171,7 +171,21 @@ class Mugiwait(discord.Bot):
     ) -> str:
         if not reply:
             return ""
-        return reply.jump_url
+        if not reply.message_id:
+            return reply.jump_url
+        channel = self.get_channel(reply.channel_id)
+        if not channel:
+            return reply.jump_url
+        try:
+            message = await channel.fetch_message(reply.message_id)
+            assert isinstance(message, discord.Message)
+        except (AttributeError, AssertionError):
+            return reply.jump_url
+        ans = f"{message.author.display_name}: {reply.jump_url}"
+        if message.content:
+            ans += "\n> " + message.content[:75].replace("\n", " ")
+
+        return ans
 
     async def build_messages_from_message(
         self, text: str, reply: discord.MessageReference | None = None
