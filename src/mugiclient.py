@@ -26,10 +26,15 @@ logger = logging.getLogger(__name__)
 
 RE_COMMENTFACE = {
     # #commentface hovertext
-    "#": re.compile(r"#(?P<commentface>[^\s]+)\s?(?P<hovertext>.*)", flags=re.DOTALL),
+    "#": re.compile(
+        r"(?P<open_spoiler>\|\|)?#(?P<commentface>[^\s\|]+)"
+        r"(?P<close_spoiler>\|\|)?\s?(?P<hovertext>.*)",
+        flags=re.DOTALL,
+    ),
     # [overlay](#commentface "hovertext")
     "[": re.compile(
-        r"\[(?P<overlay>.*)\]\(#(?P<commentface>[^\s]+)\s?\"?(?P<hovertext>[^\"]*)\"?\)",
+        r"(?P<open_spoiler>\|\|)?\[(?P<overlay>.*)\]"
+        r"\(#(?P<commentface>[^\s]+)\s?\"?(?P<hovertext>[^\"]*)\"?\)(?P<close_spoiler>\|\|)?",
         flags=re.DOTALL,
     ),
 }
@@ -198,11 +203,7 @@ class Mugiwait(discord.Bot):
         reference = await self.get_reference_contents(reply) if reply else ""
         messages: list[MugiMessage] = []
         spoiler = text.startswith("||")
-        if text.startswith("||"):
-            text = text[2:]
-            if text.endswith("||"):
-                text = text[:-2]
-        prefix = text[0]
+        prefix = text[0 + 2 * spoiler]
         match = RE_COMMENTFACE[prefix].match(text)
         if not match:
             logger.debug("No match found")
@@ -223,19 +224,20 @@ class Mugiwait(discord.Bot):
             raise e
 
         overlay = match_dict.get("overlay", "")
-        if spoiler:
-            overlay = f"||{overlay}||"
+        if spoiler and overlay:
+            overlay = apply_spoiler_to_text(overlay)
         if reply:
-            overlay = f"> {reference}\n{overlay}"
+            overlay = f"> {reference}" + (f"\n{overlay}" if overlay else "")
         if self.asset_type == AssetType.FILE:
             commentface_message.content = overlay
         elif overlay:
             messages.append(MugiMessage(content=overlay))
         messages.append(commentface_message)
 
-        if hovertext := match_dict.get("hovertext", ""):
-            if spoiler:
-                hovertext = f"||{hovertext}||"
+        hovertext = match_dict.get("hovertext", "")
+        if spoiler and hovertext:
+            hovertext = apply_spoiler_to_text(hovertext)
+        if hovertext:
             messages.append(MugiMessage(content=hovertext))
 
         return messages
@@ -319,3 +321,10 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
         logger.debug("Ignoring message without the right prefix")
         return False
     return True
+
+
+def apply_spoiler_to_text(text: str) -> str:
+    text = text.replace("||", "").strip()
+    if not text:
+        return ""
+    return f"||{text}||"
