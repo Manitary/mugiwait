@@ -98,16 +98,18 @@ class MugiMessage:
     file: discord.File | None = None
 
 
-async def build_imgur_message(commentface: str) -> MugiMessage:
+async def build_imgur_message(commentface: str, spoiler: bool = False) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
     url = COMMENTFACES_URL.get(commentface.lower(), None)
     if not url:
         raise MugiError()
     logger.debug("URL found: %s", url)
+    if spoiler:
+        url = f"||{url}||"
     return MugiMessage(content=url)
 
 
-async def build_github_message(commentface: str) -> MugiMessage:
+async def build_github_message(commentface: str, spoiler: bool = False) -> MugiMessage:
     """Return the contents of the message based on Github assets."""
     commentface_path = COMMENTFACES.get(commentface.lower(), None)
     if not commentface_path:
@@ -115,16 +117,18 @@ async def build_github_message(commentface: str) -> MugiMessage:
     logger.debug("Path found: %s", commentface_path)
     relative_path = "/".join(commentface_path.parts[2:])  # remove src/assets
     url = GITHUB_PREVIEW_URL.format(relative_path=relative_path).replace(" ", "%20")
+    if spoiler:
+        url = f"||{url}||"
     return MugiMessage(content=url)
 
 
-async def build_file_message(commentface: str) -> MugiMessage:
+async def build_file_message(commentface: str, spoiler: bool = False) -> MugiMessage:
     """Return the contents of the message based on local assets."""
     commentface_path = COMMENTFACES.get(commentface.lower(), None)
     if not commentface_path:
         raise MugiError()
     logger.debug("Path found: %s", commentface_path)
-    return MugiMessage(file=discord.File(commentface_path))
+    return MugiMessage(file=discord.File(commentface_path, spoiler=spoiler))
 
 
 BUILD_MESSAGE = {
@@ -193,6 +197,11 @@ class Mugiwait(discord.Bot):
         """Return a list of message contents to send and replace the processed input text."""
         reference = await self.get_reference_contents(reply) if reply else ""
         messages: list[MugiMessage] = []
+        spoiler = text.startswith("||")
+        if text.startswith("||"):
+            text = text[2:]
+            if text.endswith("||"):
+                text = text[:-2]
         prefix = text[0]
         match = RE_COMMENTFACE[prefix].match(text)
         if not match:
@@ -206,12 +215,16 @@ class Mugiwait(discord.Bot):
             raise MugiError()
 
         try:
-            commentface_message = await BUILD_MESSAGE[self.asset_type](commentface)
+            commentface_message = await BUILD_MESSAGE[self.asset_type](
+                commentface, spoiler
+            )
         except MugiError as e:
             logger.info("Invalid commentface: %s", commentface)
             raise e
 
         overlay = match_dict.get("overlay", "")
+        if spoiler:
+            overlay = f"||{overlay}||"
         if reply:
             overlay = f"> {reference}\n{overlay}"
         if self.asset_type == AssetType.FILE:
@@ -221,6 +234,8 @@ class Mugiwait(discord.Bot):
         messages.append(commentface_message)
 
         if hovertext := match_dict.get("hovertext", ""):
+            if spoiler:
+                hovertext = f"||{hovertext}||"
             messages.append(MugiMessage(content=hovertext))
 
         return messages
@@ -297,7 +312,10 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
     if message.author == client.user:
         logger.debug("Ignoring message from self")
         return False
-    if not message.content or message.content[0] not in RE_COMMENTFACE:
+    if not message.content or (
+        message.content[0] not in RE_COMMENTFACE
+        and not message.content.startswith("||")
+    ):
         logger.debug("Ignoring message without the right prefix")
         return False
     return True
