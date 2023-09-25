@@ -137,7 +137,9 @@ async def on_message(message: discord.Message) -> None:
     logger.info("Processing message: %s. Author: %s", message.content, username)
 
     try:
-        mugi_messages = await client.build_messages_from_message(message.content)
+        mugi_messages = await client.build_messages_from_message(
+            message.content, message.reference
+        )
     except MugiError:
         logger.info("Invalid message, could not build commentface")
         return
