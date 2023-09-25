@@ -11,7 +11,7 @@ A discord bot to send [r/anime commentfaces][r/anime] ([original source][r/anime
 Generate the invite link. Select:
 
 - Scope: bot
-- Bot permissions: manage webhooks, read messages/view channels, send messages, manage messages
+- Bot permissions: manage webhooks, read messages/view channels, send messages, manage messages, read message history
 
 Add the application to your server
 
@@ -19,9 +19,9 @@ Clone the repository and cd into it
 
 Create a `.env` file containing `TOKEN={{your Discord application token}}` (without the braces)
 
-`pip install -r requirements.txt`
+Install the required modules: `pip install -r requirements.txt`
 
-`python src\mugiwait.py`
+Run the bot: `python src\mugiwait.py`
 
 Additional options:
 
@@ -46,14 +46,16 @@ and supports the use of spoiler tags.
 e.g.  
 `#anko this is nice`  
 `[](#whisperwhisper this is a secret)`  
-`||[this will be spoiler-tagged](#nosenpai "including the commentface itself)||`
+`||[this will be spoiler-tagged](#nosenpai "including the commentface itself")||`
 
 Mugi will not react to:
 
-- Messages outside of text channels (threads are also excluded)
-- Messages not starting with `#`,  `[`, or `||`
+- Messages outside of text channels
+- Messages not starting with `#`, `[`, or `||`
 - Messages formatted incorrectly
 - Incorrect commentface code
+
+Webhooks cannot "reply" to messages, i.e. have a reference to an existing message in the channel. However, Mugi can mimic the behaviour by adding a short quote (i.e. text preceded by `>`) that includes the author of the message, a link to the message, and a short excerpt of the message.
 
 ## How to use (via slash command)
 
