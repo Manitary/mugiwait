@@ -32,6 +32,8 @@ Additional options:
 
 Note: Imgur/Github links will not display for users who disabled link previews.
 
+Warning: Imgur links are not up to date. While the functionality exists, it may be considered deprecated.
+
 ## How to use (via message)
 
 Mugi reacts to messages with two formats:
@@ -39,14 +41,17 @@ Mugi reacts to messages with two formats:
 - `#commentface {{optional: text after}}`
 - `[{{optional: text before}}](#commentface {{optional: text after}})`
 
+and supports the use of spoiler tags.
+
 e.g.  
 `#anko this is nice`  
-`[](#whisperwhisper this is a secret)`
+`[](#whisperwhisper this is a secret)`  
+`||[this will be spoiler-tagged](#nosenpai "including the commentface itself)||`
 
 Mugi will not react to:
 
 - Messages outside of text channels (threads are also excluded)
-- Messages not starting with `#` or `[`
+- Messages not starting with `#`,  `[`, or `||`
 - Messages formatted incorrectly
 - Incorrect commentface code
 
