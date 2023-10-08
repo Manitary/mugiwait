@@ -193,6 +193,11 @@ async def on_message(message: discord.Message) -> None:
     return
 
 
+@client.event
+async def on_message_edit(before: discord.Message, after: discord.Message) -> None:
+    await on_message(after)
+
+
 def run(args: Type[ParserArguments]) -> None:
     token = os.getenv("TOKEN_DEV") if args.dev else os.getenv("TOKEN")
     if not token:
