@@ -12,7 +12,7 @@ import discord
 from dotenv import load_dotenv
 
 import mugiclient
-from mugiclient import MugiError
+from mugiclient import MugiError, MugiMessage
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -151,6 +151,14 @@ async def on_message(message: discord.Message) -> None:
         logger.info("Invalid channel/thread")
         return
 
+    files: list[discord.File] = []
+    if mugi_messages and message.attachments:
+        for attachment in message.attachments:
+            file = await attachment.to_file(
+                use_cached=True, spoiler=attachment.is_spoiler()
+            )
+            files.append(file)
+
     for mugi_message in mugi_messages:
         logger.info(
             (
@@ -172,6 +180,15 @@ async def on_message(message: discord.Message) -> None:
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
         )
+
+    if files:
+        await hook.send(
+            files=files,
+            username=username,
+            avatar_url=avatar,
+            thread=thread or discord.MISSING,
+        )
+
     await message.delete()
     return
 
