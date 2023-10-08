@@ -315,8 +315,8 @@ def is_valid_message(message: discord.Message, client: discord.Client) -> bool:
         logger.debug("Ignoring message from self")
         return False
     if not message.content or (
-        message.content[0] not in RE_COMMENTFACE
-        and not message.content.startswith("||")
+        all(not message.content.startswith(x) for x in RE_COMMENTFACE)
+        and all(not message.content.startswith(f"||{x}") for x in RE_COMMENTFACE)
     ):
         logger.debug("Ignoring message without the right prefix")
         return False
