@@ -12,7 +12,7 @@ import discord
 from dotenv import load_dotenv
 
 import mugiclient
-from mugiclient import MugiError, MugiMessage
+from mugiclient import MugiError
 
 os.chdir(Path(__file__).parent.parent)
 
