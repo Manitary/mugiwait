@@ -24,6 +24,7 @@ ValidChannel = (
 
 logger = logging.getLogger(__name__)
 
+RE_DISCORD_LINK = re.compile(r"https://discord\.com/channels/\d+/\d+/\d+")
 RE_COMMENTFACE = {
     # #commentface hovertext
     "#": re.compile(
@@ -46,6 +47,9 @@ GITHUB_PREVIEW_URL = (
 SEASONS = ("winter", "spring", "summer", "fall")
 YEAR_RANGE = range(datetime.utcnow().year, 2021, -1)
 SEASONS_LIST = [f"{year} {season}" for year in YEAR_RANGE for season in SEASONS[::-1]]
+MAX_REPLY_TEXT_LENGTH = 75
+DISCORD_LINK_LENGTH = 88  # discord message url length
+DISCORD_MAX_LINK_LENGTH_VISUAL = 35  # rough measure
 
 
 class MugiError(Exception):
@@ -176,7 +180,9 @@ class Mugiwait(discord.Bot):
         self._asset_type = value
 
     async def get_reference_contents(
-        self, reply: discord.MessageReference | None = None
+        self,
+        reply: discord.MessageReference | None = None,
+        max_length: int = MAX_REPLY_TEXT_LENGTH,
     ) -> str:
         if not reply:
             return ""
@@ -193,7 +199,11 @@ class Mugiwait(discord.Bot):
         ans = f"{message.author.display_name}: {reply.jump_url}"
 
         if message.content:
-            ans += "\n> " + fix_spoilers(message.content[:75].replace("\n", " "))
+            ans += "\n> " + fix_spoilers(
+                trim_message_keep_discord_links(message.content, max_length).replace(
+                    "\n", " "
+                )
+            )
 
         return ans
 
@@ -329,6 +339,25 @@ def apply_spoiler_to_text(text: str) -> str:
     if not text:
         return ""
     return f"||{text}||"
+
+
+def trim_message_keep_discord_links(text: str, n: int) -> str:
+    """Attempt to trim a message while preserving discord links.
+
+    This makes so that a chain of replies does not contain broken discord links,
+    as they may exceed the max length in raw characters, but not visually.
+
+    Link visual length is based on the channel name, so assume each link reaches the max.
+    """
+    pos = 0
+    num_links = 0
+    while pos - (
+        (DISCORD_LINK_LENGTH - DISCORD_MAX_LINK_LENGTH_VISUAL) * num_links
+    ) < n and (match := RE_DISCORD_LINK.search(text, pos)):
+        pos = match.end()
+        num_links += 1
+    pos = max(pos, n)
+    return text[:pos]
 
 
 def fix_spoilers(text: str) -> str:
