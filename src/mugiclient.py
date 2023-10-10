@@ -191,8 +191,9 @@ class Mugiwait(discord.Bot):
         except (AttributeError, AssertionError):
             return reply.jump_url
         ans = f"{message.author.display_name}: {reply.jump_url}"
+
         if message.content:
-            ans += "\n> " + message.content[:75].replace("\n", " ")
+            ans += "\n> " + fix_spoilers(message.content[:75].replace("\n", " "))
 
         return ans
 
@@ -328,3 +329,17 @@ def apply_spoiler_to_text(text: str) -> str:
     if not text:
         return ""
     return f"||{text}||"
+
+
+def fix_spoilers(text: str) -> str:
+    """Attempt to preserve spoilers when message contents are cut to ``text``.
+
+    Due to how markdown syntax works, this may fail on specific edge cases,
+    and when interacting with other (potentially broken) syntax like code blocks.
+
+    It works generally fine for our scope, erring on the side of caution,
+    as most messages don't use very intricate markdown."""
+    spoiler_delimiters = re.findall(r"(?<!\|)\|\|", text)
+    if len(spoiler_delimiters) % 2:
+        return f"{text}||"
+    return text
