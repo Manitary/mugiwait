@@ -60,8 +60,7 @@ async def autocomplete_example(
     username = ctx.interaction.user.display_name
     avatar = ctx.interaction.user.display_avatar
     logger.info(
-        "Command detected: author = %s, commentface = %s, additional text = %s",
-        username,
+        "Command detected: commentface = %s, additional text = %s",
         commentface,
         text,
     )
@@ -92,9 +91,8 @@ async def autocomplete_example(
         logger.info(
             (
                 "Sending message: "
-                "username = %s, avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+                "avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
             ),
-            username,
             avatar,
             mugi_message.content,
             mugi_message.file.fp if mugi_message.file else None,
@@ -134,7 +132,10 @@ async def on_message(message: discord.Message) -> None:
         return
     username = message.author.display_name
     avatar = message.author.display_avatar
-    logger.info("Processing message: %s. Author: %s", message.content, username)
+    logger.info(
+        "Processing message: %s",
+        message.content,
+    )
 
     try:
         mugi_messages = await client.build_messages_from_message(
@@ -163,9 +164,8 @@ async def on_message(message: discord.Message) -> None:
         logger.info(
             (
                 "Sending message: "
-                "username = %s, avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+                "avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
             ),
-            username,
             avatar,
             mugi_message.content,
             mugi_message.file.fp if mugi_message.file else None,
