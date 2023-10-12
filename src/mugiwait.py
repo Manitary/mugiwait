@@ -160,6 +160,7 @@ async def on_message(message: discord.Message) -> None:
             )
             files.append(file)
 
+    new_username = username if "clyde" not in username else "c_l_y_d_e"
     for mugi_message in mugi_messages:
         logger.info(
             (
@@ -175,7 +176,7 @@ async def on_message(message: discord.Message) -> None:
         await hook.send(
             content=mugi_message.content or discord.MISSING,
             file=mugi_message.file or discord.MISSING,
-            username=username,
+            username=new_username,
             avatar_url=avatar,
             allowed_mentions=discord.AllowedMentions(everyone=False),
             thread=thread or discord.MISSING,
@@ -184,7 +185,7 @@ async def on_message(message: discord.Message) -> None:
     if files:
         await hook.send(
             files=files,
-            username=username,
+            username=new_username,
             avatar_url=avatar,
             thread=thread or discord.MISSING,
         )
