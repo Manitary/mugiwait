@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Type
 
 import discord
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 import mugiclient
-from mugiclient import MugiError
 
 os.chdir(Path(__file__).parent.parent)
 
@@ -32,6 +32,19 @@ class ParserArguments:
     imgur: bool
     github: bool
     dev: bool
+
+
+class QueueProcessor(commands.Cog):
+    def __init__(self, bot: mugiclient.Mugiwait) -> None:
+        self.bot = bot
+        self.process_queue.start()
+
+    @tasks.loop(seconds=1.0)
+    async def process_queue(self) -> None:
+        await self.bot.process_queue()
+
+
+client.add_cog(QueueProcessor(client))
 
 
 @client.slash_command(name="mugi")  # type: ignore
@@ -65,10 +78,10 @@ async def autocomplete_example(
         text,
     )
     try:
-        messages = await client.build_messages_from_command(
+        mugi_messages = await client.build_messages_from_command(
             commentface=commentface, text=text
         )
-    except MugiError:
+    except mugiclient.MugiError:
         logger.info("Could not build messages")
         await ctx.interaction.response.send_message(
             f"An unexpected error occurred. Perhaps commentface {commentface} does not exist?",
@@ -83,30 +96,29 @@ async def autocomplete_example(
             channel=ctx.interaction.channel
         )
         hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
-    except MugiError:
+    except mugiclient.MugiError:
         logger.info("Invalid channel/thread")
         return
     await ctx.interaction.response.defer()
-    for mugi_message in messages:
-        logger.info(
-            (
-                "Sending message: "
-                "avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+    messages = [
+        (
+            hook,
+            mugiclient.PreparedMessage(
+                {
+                    "content": mugi_message.content or discord.MISSING,
+                    "file": mugi_message.file or discord.MISSING,
+                    "files": discord.MISSING,
+                    "username": username,
+                    "avatar_url": avatar,
+                    "allowed_mentions": discord.AllowedMentions(everyone=False),
+                    "thread": thread or discord.MISSING,
+                }
             ),
-            avatar,
-            mugi_message.content,
-            mugi_message.file.fp if mugi_message.file else None,
-            channel,
-            thread,
         )
-        await hook.send(
-            content=mugi_message.content or discord.MISSING,
-            file=mugi_message.file or discord.MISSING,
-            username=username,
-            avatar_url=avatar,
-            allowed_mentions=discord.AllowedMentions(everyone=False),
-            thread=thread or discord.MISSING,
-        )
+        for mugi_message in mugi_messages
+    ]
+    logger.info("Adding command message to the queue")
+    client.add_to_queue(messages)
     await ctx.interaction.delete_original_response()
 
 
@@ -141,14 +153,14 @@ async def on_message(message: discord.Message) -> None:
         mugi_messages = await client.build_messages_from_message(
             message.content, message.reference
         )
-    except MugiError:
+    except mugiclient.MugiError:
         logger.info("Invalid message, could not build commentface")
         return
 
     try:
         channel, thread = await mugiclient.get_channel_and_thread(message.channel)
         hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
-    except MugiError:
+    except mugiclient.MugiError:
         logger.info("Invalid channel/thread")
         return
 
@@ -161,35 +173,42 @@ async def on_message(message: discord.Message) -> None:
             files.append(file)
 
     new_username = username if "clyde" not in username else "c_l_y_d_e"
-    for mugi_message in mugi_messages:
-        logger.info(
-            (
-                "Sending message: "
-                "avatar = %s, content = %s, file = %s, channel = %s, thread = %s"
+    messages = [
+        (
+            hook,
+            mugiclient.PreparedMessage(
+                {
+                    "content": mugi_message.content or discord.MISSING,
+                    "file": mugi_message.file or discord.MISSING,
+                    "files": discord.MISSING,
+                    "username": new_username,
+                    "avatar_url": avatar,
+                    "allowed_mentions": discord.AllowedMentions(everyone=False),
+                    "thread": thread or discord.MISSING,
+                }
             ),
-            avatar,
-            mugi_message.content,
-            mugi_message.file.fp if mugi_message.file else None,
-            channel,
-            thread,
         )
-        await hook.send(
-            content=mugi_message.content or discord.MISSING,
-            file=mugi_message.file or discord.MISSING,
-            username=new_username,
-            avatar_url=avatar,
-            allowed_mentions=discord.AllowedMentions(everyone=False),
-            thread=thread or discord.MISSING,
-        )
-
+        for mugi_message in mugi_messages
+    ]
     if files:
-        await hook.send(
-            files=files,
-            username=new_username,
-            avatar_url=avatar,
-            thread=thread or discord.MISSING,
+        messages.append(
+            (
+                hook,
+                mugiclient.PreparedMessage(
+                    {
+                        "content": discord.MISSING,
+                        "file": discord.MISSING,
+                        "files": files,
+                        "username": new_username,
+                        "avatar_url": avatar,
+                        "allowed_mentions": discord.MISSING,
+                        "thread": thread or discord.MISSING,
+                    }
+                ),
+            )
         )
-
+    logger.info("Adding message(s) to the queue")
+    client.add_to_queue(messages)
     await message.delete()
     return
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
+from typing import TypedDict
 
 import discord
 from discord.utils import get as get_hook
@@ -104,6 +105,21 @@ class MugiMessage:
     file: discord.File | None = None
 
 
+class PreparedMessage(TypedDict):
+    content: str
+    file: discord.File
+    files: list[discord.File]
+    username: str
+    avatar_url: discord.Asset
+    allowed_mentions: discord.AllowedMentions
+    thread: discord.Thread
+
+
+class QueueStatus(Enum):
+    IDLE = auto()
+    RUNNING = auto()
+
+
 async def build_imgur_message(commentface: str, spoiler: bool = False) -> MugiMessage:
     """Return the contents of the message based on Imgur assets."""
     url = COMMENTFACES_URL.get(commentface.lower(), None)
@@ -166,6 +182,8 @@ class Mugiwait(discord.Bot):
     """
 
     _asset_type: AssetType = AssetType.FILE
+    _message_queue: list[tuple[discord.Webhook, PreparedMessage]] = []
+    queue_status: QueueStatus = QueueStatus.IDLE
 
     @property
     def asset_type(self) -> AssetType:
@@ -268,6 +286,28 @@ class Mugiwait(discord.Bot):
         if text:
             messages.append(MugiMessage(content=text))
         return messages
+
+    async def process_queue(self) -> None:
+        if self.queue_status == QueueStatus.RUNNING:
+            return
+        if not self._message_queue:
+            return
+        self.queue_status = QueueStatus.RUNNING
+        logger.info("Processing queue")
+        while self._message_queue:
+            hook, message = self._message_queue.pop(0)
+            logger.info(
+                "Sending message: %s",
+                {k: v for k, v in message.items() if k != "username"},
+            )
+            await hook.send(**message)
+        logger.info("Queue processed")
+        self.queue_status = QueueStatus.IDLE
+
+    def add_to_queue(
+        self, messages: list[tuple[discord.Webhook, PreparedMessage]]
+    ) -> None:
+        self._message_queue.extend(messages)
 
 
 async def get_channel_and_thread(
