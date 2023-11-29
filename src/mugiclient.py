@@ -2,7 +2,7 @@ import itertools
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from enum import Enum, auto
 from pathlib import Path
 from typing import TypedDict
@@ -14,7 +14,7 @@ from discord.utils import get as get_hook
 import process_reply
 from resources.commentfaces import COMMENTFACES_URL
 
-ValidChannel = (
+type ValidChannel = (
     discord.VoiceChannel
     | discord.StageChannel
     | discord.TextChannel

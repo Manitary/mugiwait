@@ -4,7 +4,7 @@ A discord bot to send [r/anime commentfaces][r/anime] ([original source][r/anime
 
 ## How to run
 
-(Requires Python >= 3.6)
+(Requires Python 3.12)
 
 [Create the Discord application][discordapp] and get its token
 
