@@ -2,7 +2,7 @@ import itertools
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum, auto
 from pathlib import Path
 from typing import TypedDict
@@ -47,7 +47,7 @@ GITHUB_PREVIEW_URL = (
     "comment-face-assets/master/{relative_path}"
 )
 SEASONS = ("winter", "spring", "summer", "fall")
-YEAR_RANGE = range(datetime.utcnow().year, 2021, -1)
+YEAR_RANGE = range(datetime.now(UTC).year, 2021, -1)
 SEASONS_LIST = [f"{year} {season}" for year in YEAR_RANGE for season in SEASONS[::-1]]
 
 
