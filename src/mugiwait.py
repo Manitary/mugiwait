@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Type
 
 import discord
-from discord.ext import commands, tasks
+from discord.ext import tasks
 from dotenv import load_dotenv
 
 import mugiclient
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 intents = discord.Intents.default()
 intents.message_content = True
-client = mugiclient.Mugiwait(intents=intents)
+client = mugiclient.Mugiwait(command_prefix="", intents=intents)
 
 
 @dataclass
@@ -34,31 +34,11 @@ class ParserArguments:
     dev: bool
 
 
-class QueueProcessor(commands.Cog):
-    def __init__(self, bot: mugiclient.Mugiwait) -> None:
-        self.bot = bot
-        self.process_queue.start()
-
-    @tasks.loop(seconds=1.0)
-    async def process_queue(self) -> None:
-        await self.bot.process_queue()
-
-
-client.add_cog(QueueProcessor(client))
-
-
-@client.slash_command(name="mugi")  # type: ignore
-@discord.commands.option(  # type: ignore
-    "commentface",
-    description="Pick a commentface",
-    autocomplete=mugiclient.get_commentfaces_suggestions,
-)
-@discord.commands.option(  # type: ignore
-    "text",
-    description="Additional text",
-)
-async def autocomplete_example(
-    ctx: discord.ApplicationContext, commentface: str, text: str = ""
+@client.tree.command()
+@discord.app_commands.autocomplete(commentface=mugiclient.get_commentfaces_suggestions)
+@discord.app_commands.describe(commentface="Pick a commentface", text="Additional text")
+async def mugi(
+    interaction: discord.Interaction, commentface: str, text: str = ""
 ) -> None:
     """Slash command to send a commentface.
 
@@ -67,11 +47,11 @@ async def autocomplete_example(
     The commentface field supports autocompletion.
     The text field is optional.
     """
-    if not ctx.interaction.user:
+    if not interaction.user:
         logger.warning("Interaction user not found")
         return
-    username = ctx.interaction.user.display_name
-    avatar = ctx.interaction.user.display_avatar
+    username = interaction.user.display_name
+    avatar = interaction.user.display_avatar
     logger.info(
         "Command detected: commentface = %s, additional text = %s",
         commentface,
@@ -83,35 +63,35 @@ async def autocomplete_example(
         )
     except mugiclient.MugiError:
         logger.info("Could not build messages")
-        await ctx.interaction.response.send_message(
+        await interaction.response.send_message(
             f"An unexpected error occurred. Perhaps commentface {commentface} does not exist?",
             ephemeral=True,
         )
         return
-    if not ctx.interaction.channel:
+    if not interaction.channel:
         logger.warning("Interaction channel not found")
         return
     try:
         channel, thread = await mugiclient.get_channel_and_thread(
-            channel=ctx.interaction.channel
+            channel=interaction.channel
         )
         hook = await mugiclient.get_webhook(channel=channel, hook_name=str(client.user))
     except mugiclient.MugiError:
         logger.info("Invalid channel/thread")
         return
-    await ctx.interaction.response.defer()
+    await interaction.response.defer()
     messages = [
         (
             hook,
             mugiclient.PreparedMessage(
                 {
-                    "content": mugi_message.content or discord.MISSING,
-                    "file": mugi_message.file or discord.MISSING,
-                    "files": discord.MISSING,
+                    "content": mugi_message.content or discord.utils.MISSING,
+                    "file": mugi_message.file or discord.utils.MISSING,
+                    "files": discord.utils.MISSING,
                     "username": username,
                     "avatar_url": avatar,
                     "allowed_mentions": discord.AllowedMentions(everyone=False),
-                    "thread": thread or discord.MISSING,
+                    "thread": thread or discord.utils.MISSING,
                 }
             ),
         )
@@ -119,12 +99,19 @@ async def autocomplete_example(
     ]
     logger.info("Adding command message to the queue")
     client.add_to_queue(messages)
-    await ctx.interaction.delete_original_response()
+    await interaction.delete_original_response()
 
 
-@client.event
+@tasks.loop(seconds=1)
+async def task_loop() -> None:
+    await client.process_queue()
+
+
+@client.listen()
 async def on_ready() -> None:
     """Change status when going online."""
+    await client.tree.sync()
+    task_loop.start()
     await client.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching, name="mugi waiting"
@@ -178,13 +165,13 @@ async def on_message(message: discord.Message) -> None:
             hook,
             mugiclient.PreparedMessage(
                 {
-                    "content": mugi_message.content or discord.MISSING,
-                    "file": mugi_message.file or discord.MISSING,
-                    "files": discord.MISSING,
+                    "content": mugi_message.content or discord.utils.MISSING,
+                    "file": mugi_message.file or discord.utils.MISSING,
+                    "files": discord.utils.MISSING,
                     "username": new_username,
                     "avatar_url": avatar,
                     "allowed_mentions": discord.AllowedMentions(everyone=False),
-                    "thread": thread or discord.MISSING,
+                    "thread": thread or discord.utils.MISSING,
                 }
             ),
         )
@@ -196,13 +183,13 @@ async def on_message(message: discord.Message) -> None:
                 hook,
                 mugiclient.PreparedMessage(
                     {
-                        "content": discord.MISSING,
-                        "file": discord.MISSING,
+                        "content": discord.utils.MISSING,
+                        "file": discord.utils.MISSING,
                         "files": files,
                         "username": new_username,
                         "avatar_url": avatar,
-                        "allowed_mentions": discord.MISSING,
-                        "thread": thread or discord.MISSING,
+                        "allowed_mentions": discord.utils.MISSING,
+                        "thread": thread or discord.utils.MISSING,
                     }
                 ),
             )

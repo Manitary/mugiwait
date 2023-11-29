@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TypedDict
 
 import discord
+from discord.ext.commands import Bot
 from discord.utils import get as get_hook
 
 import process_reply
@@ -160,7 +161,7 @@ BUILD_MESSAGE = {
 }
 
 
-class Mugiwait(discord.Bot):
+class Mugiwait(Bot):
     """Mugified discord client.
 
     Attributes:
@@ -341,12 +342,14 @@ async def get_webhook(
     return hook
 
 
-async def get_commentfaces_suggestions(ctx: discord.AutocompleteContext) -> list[str]:
+async def get_commentfaces_suggestions(
+    interaction: discord.Interaction, current: str
+) -> list[discord.app_commands.Choice[str]]:
     """Returns a list of commentfaces that start with the characters entered so far."""
     return [
-        commentface
+        discord.app_commands.Choice(name=commentface, value=commentface)
         for commentface in COMMENTFACES
-        if commentface.startswith(ctx.value.lower())
+        if commentface.startswith(current.lower())
     ]
 
 
