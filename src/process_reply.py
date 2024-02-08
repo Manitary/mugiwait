@@ -11,6 +11,10 @@ RE_EMOJI = re.compile(r"(<:\w{2,32}:\d+>)")
 
 ALL_RE = re.compile(r"|".join(x.pattern for x in (RE_USER, RE_MESSAGE_LINK, RE_EMOJI)))
 
+RE_URL = re.compile(r"(?<!<)(https?://\w[^\s]+)(?!>)")
+#! lookbehind/ahead are not simultaneous
+# not exactly sure what Discord allows
+
 MAX_REPLY_TEXT_LENGTH = 75
 VISUAL_LENGTH = {RE_USER: 1, RE_MESSAGE_LINK: 35, RE_EMOJI: 5}
 
@@ -51,7 +55,12 @@ def fix_spoilers(text: str) -> str:
     return text
 
 
+def suppress_url(text: str) -> str:
+    """Attempt to suppress URL previews"""
+    return RE_URL.sub(r"<\1>", text)
+
+
 def process(text: str, n: int = MAX_REPLY_TEXT_LENGTH) -> str:
-    ans = fix_spoilers(trim_message(text, n)).replace("\n", " ")
+    ans = suppress_url(fix_spoilers(trim_message(text, n))).replace("\n", " ")
     logger.info("Processing reply\nOriginal: %s\nProcessed: %s", text, ans)
     return ans
