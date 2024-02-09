@@ -36,14 +36,34 @@ def test_suppress_url_in_msg(url: str) -> None:
     assert suppress_url(message) == f"aaa <{url}> aaa"
 
 
+@pytest.mark.parametrize("url", URLS)
+def test_suppress_url_adjacent_to_text(url: str) -> None:
+    message = f"aaa{url}aaa"
+    expected = f"aaa<{url}aaa>"
+    assert suppress_url(message) == expected
+
+
 @pytest.mark.parametrize("not_url", NOT_URLS)
 def test_dont_suppress_url_in_msg(not_url: str) -> None:
     message = f"aaa {not_url} aaa"
     assert suppress_url(message) == message
 
 
-@pytest.mark.xfail
 def test_open_lbracket() -> None:
     message = "<https://www.google.com"
     expected = "<<https://www.google.com>"
+    assert suppress_url(message) == expected
+
+
+def test_multiple_urls() -> None:
+    message = " aaa ".join(URLS)
+    expected = f"<{'> aaa <'.join(URLS)}>"
+    assert suppress_url(message) == expected
+
+
+@pytest.mark.parametrize("url", URLS)
+@pytest.mark.parametrize("not_url", NOT_URLS)
+def test_mix_urls_not_urls(url: str, not_url: str) -> None:
+    message = f"aaa {url} aaa {not_url}"
+    expected = f"aaa <{url}> aaa {not_url}"
     assert suppress_url(message) == expected

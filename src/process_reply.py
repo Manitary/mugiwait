@@ -11,9 +11,8 @@ RE_EMOJI = re.compile(r"(<:\w{2,32}:\d+>)")
 
 ALL_RE = re.compile(r"|".join(x.pattern for x in (RE_USER, RE_MESSAGE_LINK, RE_EMOJI)))
 
-RE_URL = re.compile(r"(?<!<)(https?://\w[^\s]+)(?!>)")
-#! lookbehind/ahead are not simultaneous
-# not exactly sure what Discord allows
+RE_URL = re.compile(r"<?(https?://\w[^\s]+)")
+# not sure what Discord considers a valid URL
 
 MAX_REPLY_TEXT_LENGTH = 75
 VISUAL_LENGTH = {RE_USER: 1, RE_MESSAGE_LINK: 35, RE_EMOJI: 5}
@@ -55,9 +54,20 @@ def fix_spoilers(text: str) -> str:
     return text
 
 
+def _suppress_url(match: re.Match[str]) -> str:
+    """Function to replace a matched URL.
+
+    If the URL is wrapped in `<>`, return it as-is.
+    Otherwise, wrap it and return the resulting string."""
+    match_str = match.group(0)
+    if match_str.startswith("<") and match_str.endswith(">"):
+        return match_str
+    return f"<{match_str}>"
+
+
 def suppress_url(text: str) -> str:
     """Attempt to suppress URL previews"""
-    return RE_URL.sub(r"<\1>", text)
+    return RE_URL.sub(_suppress_url, text)
 
 
 def process(text: str, n: int = MAX_REPLY_TEXT_LENGTH) -> str:
