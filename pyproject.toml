@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "mugiwait"
+version = "0.1.0"
+description = "A discord bot to send r/anime commentfaces"
+authors = ["Manitary <pak.ska@gmail.com>", "Amndeep Singh Mann <me@asm.works>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+python-dotenv = "^1.0.0"
+discord-py = "^2.3.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

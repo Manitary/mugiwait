@@ -4,9 +4,7 @@ A discord bot to send [r/anime commentfaces][r/anime] ([original source][r/anime
 
 ## How to run
 
-(Requires Python 3.12)
-
-[Create the Discord application][discordapp] and get its token
+[Create the Discord application][discordapp] and get its token after enabling `Message Content Intent`.
 
 Generate the invite link. Select:
 
@@ -15,13 +13,19 @@ Generate the invite link. Select:
 
 Add the application to your server
 
+### Running it natively
+
 Clone the repository and cd into it
 
-Create a `.env` file containing `TOKEN={{your Discord application token}}` (without the braces)
+Create a `.env` file containing `TOKEN={{your Discord application token}}` (without the braces) - see .env.template for an example
 
-Install the required modules: `pip install -r requirements.txt`
+Install python (currently requiring 3.12) (a nice way to do so is `pyenv`)
 
-Run the bot: `python src\mugiwait.py`
+Install poetry
+
+Install the required modules: `poetry install`
+
+Run the bot: `poetry run python3 src/mugiwait.py`
 
 Additional options:
 
@@ -33,6 +37,25 @@ Additional options:
 Note: Imgur/Github links will not display for users who disabled link previews.
 
 Warning: Imgur links are not up to date. While the functionality exists, it may be considered deprecated.
+
+### Running it via Docker
+
+Clone the repository and cd into it
+
+Create a `.env` file containing `TOKEN={{your Discord application token}}` (without the braces) - see .env.template for an example
+
+If you wanna have finer control you can do this:
+```sh
+# calling Docker directly
+docker build -t mass_mentioner:v0.2.0 .
+docker run -d --rm mass_mentioner:v0.2.0
+```
+
+You could also use the Docker Compose solution:
+```sh
+# using docker-compose
+docker-compose up -d
+```
 
 ## How to use (via message)
 
