@@ -59,7 +59,7 @@ docker run -d --rm mass_mentioner:v0.2.0
 You could also use the Docker Compose solution:
 ```sh
 # using docker-compose
-docker-compose up -d
+docker-compose up -d --timestamps --build
 ```
 
 ## How to use (via message)
