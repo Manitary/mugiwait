@@ -17,6 +17,11 @@ Add the application to your server
 
 Clone the repository and cd into it
 
+Grab the submodules:
+
+- first time: `git submodule update --init --recursive --remote`
+- thereafter: `git submodule update --recursive`
+
 Create a `.env` file containing `TOKEN={{your Discord application token}}` (without the braces) - see .env.template for an example
 
 Install python (currently requiring 3.12) (a nice way to do so is `pyenv`)
