@@ -39,4 +39,4 @@ COPY --from=builder "$VIRTUAL_ENV" "$VIRTUAL_ENV"
 COPY ./.env ./
 COPY ./src/ ./src/
 
-ENTRYPOINT ["/bin/sh", "-c", "python3 src/mugiwait.py -d -g && tail logs/mugiwait.log"]
+ENTRYPOINT ["/bin/sh", "-c", "python3 src/mugiwait.py -d && tail logs/mugiwait.log"]
