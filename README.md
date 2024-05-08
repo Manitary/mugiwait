@@ -20,7 +20,7 @@ Clone the repository and cd into it
 Grab the submodules:
 
 - first time: `git submodule update --init --recursive --remote`
-- thereafter: `git submodule update --recursive`
+- thereafter: `git submodule update --recursive --remote`
 
 Create a `.env` file containing `TOKEN={{your Discord application token}}` (without the braces) - see .env.template for an example
 
