@@ -313,7 +313,10 @@ class Mugiwait(Bot):
 
 async def get_channel_and_thread(
     channel: ValidChannel,
-) -> tuple[ValidChannel, discord.Thread | None,]:
+) -> tuple[
+    ValidChannel,
+    discord.Thread | None,
+]:
     """Return the text channel and thread."""
     try:  # Thread
         parent_channel = channel.parent

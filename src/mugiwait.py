@@ -119,6 +119,11 @@ async def on_ready() -> None:
     )
     logger.info("Logged in as %s", client.user)
     print(f"Logged in as {client.user}")
+    logger.info(
+        "Found %s commentfaces:\n%s",
+        len(mugiclient.COMMENTFACES),
+        "\n".join(f"{k}: {v}" for k, v in mugiclient.COMMENTFACES.items()),
+    )
 
 
 @client.event
